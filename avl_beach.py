@@ -66,7 +66,7 @@ class Site(Payload):
         self.x = x
         self.y = y
         self.name = name
-        self.cell_face=None
+        self.cell_face = None
 
     def __str__(self):
         return f"{self.name} ({self.x}, {self.y})"
@@ -88,13 +88,16 @@ class Site(Payload):
     def string_parabola(self, l):
         a = self.x
         b = self.y
-        coef2 = 1 / (2 * (b - l))
-        coef1 = coef2 * (-2 * a)
-        coef0 = coef2 * (a * a + b * b - l * l)
-        plus = "+"
-        empty = ""
-        repr = f"y = {coef2:.2f}x^2 {plus if coef1 >= 0 else empty}{coef1:.2f}x {plus if coef0 >= 0 else empty}{coef0:.2f}"
-        return repr
+        if math.isclose(b, l):
+            return f"vertical site ({self.x}, {self.y})"
+        else:
+            coef2 = 1 / (2 * (b - l))
+            coef1 = coef2 * (-2 * a)
+            coef0 = coef2 * (a * a + b * b - l * l)
+            plus = "+"
+            empty = ""
+            repr = f"y = {coef2:.2f}x^2 {plus if coef1 >= 0 else empty}{coef1:.2f}x {plus if coef0 >= 0 else empty}{coef0:.2f}"
+            return repr
 
 
 class BreakPoint(Payload):
@@ -102,16 +105,17 @@ class BreakPoint(Payload):
     A break point also represents the arc to its left.
     tree.delete(arc_right_break_point)
     """
+
     def __init__(self, left_higher_site, left_lower_site):
         # site event parabola for the left twin break point
         self.left_higher_site = left_higher_site
         self.left_lower_site = left_lower_site
         # self.left_nbr=None
         # self.right_nbr=None
-        self.circle_event=None
+        self.circle_event = None
         # the incident face of this half edge is not the site of this arc
         # assert self.half_edge.twin.incident_face is self.arc.site_of_arc().cell_face
-        self.half_edge=None
+        self.half_edge = None
 
     def get_coordinates(self, l):
         # get parabolas
@@ -130,12 +134,16 @@ class BreakPoint(Payload):
         # need to handle it in the overall algorithm.
 
         if coef2 != 0:
-            x1 = (-coef1 - math.sqrt(coef1 * coef1 - 4 * coef2 * coef0)) / 2 / coef2
-            x2 = (-coef1 + math.sqrt(coef1 * coef1 - 4 * coef2 * coef0)) / 2 / coef2
-            if x2 < x1:
-                x1, x2 = x2, x1
+            if math.isclose(self.left_lower_site.y, l) or math.isclose(self.left_higher_site.y, l):
+                has_vertical = True
+            else:
+                has_vertical = False
+            if not has_vertical:
+                x1 = (-coef1 - math.sqrt(coef1 * coef1 - 4 * coef2 * coef0)) / 2 / coef2
+                x2 = (-coef1 + math.sqrt(coef1 * coef1 - 4 * coef2 * coef0)) / 2 / coef2
+                if x2 < x1:
+                    x1, x2 = x2, x1
 
-            if not math.isclose(x1, x2):
                 y1 = self.left_higher_site.get_parabola_y(x1, l)
                 y11 = self.left_lower_site.get_parabola_y(x1, l)
                 assert math.isclose(y1, y11)
@@ -153,9 +161,9 @@ class BreakPoint(Payload):
                     return x2, y2
             else:
                 if math.isclose(self.left_lower_site.y, l):
-                    return x1, self.left_higher_site.get_parabola_y(x1, l)
+                    return self.left_lower_site.x, self.left_higher_site.get_parabola_y(self.left_lower_site.x, l)
                 elif math.isclose(self.left_higher_site.y, l):
-                    return x1, self.left_lower_site.get_parabola_y(x1, l)
+                    return self.left_higher_site.x, self.left_lower_site.get_parabola_y(self.left_lower_site.x, l)
                 else:
                     raise ValueError("Investigate this")
         else:
@@ -389,63 +397,79 @@ class BeachLineTree:
         # Step 1 - Perform standard BST delete
         if not current_node:
             raise ValueError("Node not found?")
-
-        elif to_delete_node.eval(self.l) < current_node.eval(self.l):
-            # TODO I want the delete function to find me the left break point of the arc.
-            ch, arc_left_node = self._delete(current_node.left_child, to_delete_node)
-            # a rotation in the subtree might have happened, which requires that the parent-child pointers to be changed
-            # neighbor references do not change
-            current_node.left_child = ch
-            if ch:
-                ch.parent = current_node
-
-        elif to_delete_node.eval(self.l) > current_node.eval(self.l) or (current_node is not to_delete_node and \
-                                                                         current_node.payload is not to_delete_node):
-            ch, arc_left_node = self._delete(current_node.right_child, to_delete_node)
-            current_node.right_child = ch
-            if ch:
-                ch.parent = current_node
         else:
-            # current node is to be deleted
-            assert current_node is to_delete_node or current_node.payload is to_delete_node
-            if current_node.left_child is None and current_node.right_child is None:
-                if current_node.left_nbr is not None:
-                    current_node.left_nbr.right_nbr = current_node.right_nbr
-                if current_node.right_nbr is not None:
-                    current_node.right_nbr.left_nbr = current_node.left_nbr
-                return None, current_node.left_nbr
-            elif current_node.left_child is None:
-                if current_node.left_nbr is not None:
-                    current_node.left_nbr.right_nbr = current_node.right_nbr
-                if current_node.right_nbr is not None:
-                    current_node.right_nbr.left_nbr = current_node.left_nbr
-                return current_node.right_child, current_node.left_nbr
+            tdne = to_delete_node.eval(self.l)
+            cne = current_node.eval(self.l)
+            if current_node is to_delete_node or current_node.payload is to_delete_node:
+                # current node is to be deleted
+                # assert current_node is to_delete_node or current_node.payload is to_delete_node
+                if current_node.left_child is None and current_node.right_child is None:
+                    if current_node.left_nbr is not None:
+                        current_node.left_nbr.right_nbr = current_node.right_nbr
+                    if current_node.right_nbr is not None:
+                        current_node.right_nbr.left_nbr = current_node.left_nbr
+                    return None, current_node.left_nbr
+                elif current_node.left_child is None:
+                    if current_node.left_nbr is not None:
+                        current_node.left_nbr.right_nbr = current_node.right_nbr
+                    if current_node.right_nbr is not None:
+                        current_node.right_nbr.left_nbr = current_node.left_nbr
+                    return current_node.right_child, current_node.left_nbr
 
-            elif current_node.right_child is None:
-                if current_node.left_nbr is not None:
-                    current_node.left_nbr.right_nbr = current_node.right_nbr
-                if current_node.right_nbr is not None:
-                    current_node.right_nbr.left_nbr = current_node.left_nbr
+                elif current_node.right_child is None:
+                    if current_node.left_nbr is not None:
+                        current_node.left_nbr.right_nbr = current_node.right_nbr
+                    if current_node.right_nbr is not None:
+                        current_node.right_nbr.left_nbr = current_node.left_nbr
 
-                return current_node.left_child, current_node.left_nbr
+                    return current_node.left_child, current_node.left_nbr
+                else:
+                    # node has both children
+                    temp = self.get_min_value_node(current_node.right_child)
+                    assert current_node.right_nbr is temp
+                    current_node.payload = temp.payload
+                    # if temp.right_nbr is not None:
+                    #     temp.right_nbr.left_nbr = current_node
+                    # current_node.right_nbr = temp.right_nbr
+                    # if temp.left_nbr is not None:
+                    #     temp.left_nbr = current_node.left_nbr
+                    # current_node.left_nbr.right_nbr=current_node
+
+                    ch, _ = self._delete(current_node.right_child, temp)
+                    # rotate possible
+                    current_node.right_child = ch
+                    if ch is not None:
+                        ch.parent = current_node
+                    arc_left_node = current_node.left_nbr
+            elif math.isclose(tdne, cne, rel_tol=1e-5):
+                # have to check both children. float point error
+                try:
+                    ch, arc_left_node = self._delete(current_node.left_child, to_delete_node)
+                    current_node.left_child = ch
+                    if ch:
+                        ch.parent = current_node
+                except ValueError:
+                    try:
+                        ch, arc_left_node = self._delete(current_node.right_child, to_delete_node)
+                        current_node.right_child = ch
+                        if ch:
+                            ch.parent = current_node
+                    except ValueError:
+                        raise
             else:
-                # node has both children
-                temp = self.get_min_value_node(current_node.right_child)
-                assert current_node.right_nbr is temp
-                current_node.payload = temp.payload
-                # if temp.right_nbr is not None:
-                #     temp.right_nbr.left_nbr = current_node
-                # current_node.right_nbr = temp.right_nbr
-                # if temp.left_nbr is not None:
-                #     temp.left_nbr = current_node.left_nbr
-                # current_node.left_nbr.right_nbr=current_node
-
-                ch, _ = self._delete(current_node.right_child, temp)
-                # rotate possible
-                current_node.right_child = ch
-                if ch is not None:
-                    ch.parent = current_node
-                arc_left_node = current_node.left_nbr
+                if tdne < cne:
+                    # TODO I want the delete function to find me the left break point of the arc.
+                    ch, arc_left_node = self._delete(current_node.left_child, to_delete_node)
+                    # a rotation in the subtree might have happened, which requires that the parent-child pointers to be changed
+                    # neighbor references do not change
+                    current_node.left_child = ch
+                    if ch:
+                        ch.parent = current_node
+                else:
+                    ch, arc_left_node = self._delete(current_node.right_child, to_delete_node)
+                    current_node.right_child = ch
+                    if ch:
+                        ch.parent = current_node
 
         # If the subtree has only one node,
         # simply return it
@@ -610,29 +634,31 @@ class BeachLineTree:
             assert count == len(self)
 
     def plot(self):
-        mmin = self.get_min_value_node(self.root)
-        mmax = self.get_max_value_node(self.root)
+        if isinstance(self.root, Site):
+            pass
+        else:
+            mmin = self.get_min_value_node(self.root)
+            mmax = self.get_max_value_node(self.root)
 
-        x = np.linspace(mmin.eval(self.l) - 1, mmax.eval(self.l) + 1, 5000)
-        # plot all parabolas
-        for site in self.sites():
-            if math.isclose(site.y, self.l):
-                plt.axvline(x=site.x)
-            else:
-                y = site.get_parabola_y(x, self.l)
-                plt.plot(x, y)
+            x = np.linspace(mmin.eval(self.l) - 1, mmax.eval(self.l) + 1, 5000)
+            # plot all parabolas
+            for site in self.sites():
+                if math.isclose(site.y, self.l):
+                    plt.axvline(x=site.x)
+                else:
+                    y = site.get_parabola_y(x, self.l)
+                    plt.plot(x, y)
 
-        for node in self.pre_order(self.root):
-            x, y = node.payload.get_coordinates(self.l)
-            plt.plot([x], [y], marker='o', markersize=3, color="red")
+            for node in self.pre_order(self.root):
+                x, y = node.payload.get_coordinates(self.l)
+                plt.plot([x], [y], marker='o', markersize=3, color="red")
+                plt.annotate(f"{x:.1f},{y:.1f}", (x, y))
+
+            for site in self.sites():
+                x, y = site.x, site.y
+                plt.plot([x], [y], marker='o', markersize=3, color="green")
+                plt.annotate(f"{x:.1f}, {y:.1f}", (x, y))
         plt.show()
-
-        #
-        # y = x ** 2
-        # plot(x, y)
-        # xlabel("x axis")
-        # ylabel("y axis")
-        # print(x)
 
     def sites(self):
         sites = set()

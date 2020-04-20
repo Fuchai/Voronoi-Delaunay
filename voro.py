@@ -69,76 +69,87 @@ class Fortune:
                 self.handle_site_event(event)
             else:
                 self.handle_circle_event(event)
+            self.tree.plot()
+
+        # get unbounded edges again
+        # insert bounding box vertices
 
     def handle_site_event(self, site_event):
         new_site = site_event.site
         left_new_node, right_new_node = self.tree.insert(new_site)
 
-        # as a site parabola pierce through an existing arc (middle of a triplet), the previous triplets were nullified
-        old_arc = right_new_node.right_nbr.payload
-        # remove the circle events demarcating this arc, because the previous triplet is not longer consecutive
-        # false alarm
-        self.queue.remove(old_arc.circle_event)
-        old_arc.circle_event = None
+        if len(self.tree) > 0:
+            if right_new_node.right_nbr is not None:
+                # as a site parabola pierce through an existing arc (middle of a triplet),
+                # the previous triplets were nullified
+                old_arc = right_new_node.right_nbr.payload
+                # remove the circle events demarcating this arc, because the previous triplet is not longer consecutive
+                if old_arc.circle_event is not None:
+                    self.queue.remove(old_arc.circle_event)
+                    old_arc.circle_event = None
 
-        # TODO check if the new site is directly under a break point
+            # TODO check if the new site is directly under a break point
 
-        # insert new circle event for triplets (a, b, new) and (new, b, a)
-        b_node = left_new_node.left_nbr
-        if b_node is not None:
-            insert_circle_event_if_exists(left_new_node, self.queue)
+            # insert new circle event for triplets (a, b, new) and (new, b, a)
+            b_node = left_new_node.left_nbr
+            if b_node is not None:
+                insert_circle_event_if_exists(left_new_node, self.queue)
 
-        b_node = right_new_node.right_nbr
-        if b_node is not None:
-            insert_circle_event_if_exists(b_node, self.queue)
+            b_node = right_new_node.right_nbr
+            if b_node is not None:
+                insert_circle_event_if_exists(b_node, self.queue)
 
-        # DCEL manipulation
-        new_site.cell_face = Face(self.dcel, name="c" + new_site.name)
-        old_site = old_arc.site_of_arc()
+            # DCEL manipulation
+            new_site.cell_face = Face(self.dcel, name="c" + new_site.name)
+            old_site = right_new_node.payload.left_lower_site
 
-        # generate two new edges
-        old_site_edge = HalfEdge(self.dcel)
-        new_site_edge = HalfEdge(self.dcel)
-        old_site_edge.incident_face = old_site.cell_face
-        new_site_edge.incident_face = new_site.cell_face
-        old_site_edge.twin = new_site_edge
-        new_site_edge.twin = old_site_edge
-        left_new_node.payload.half_edge = new_site_edge
-        right_new_node.payload.half_edge = old_site_edge
+            # generate two new edges
+            old_site_edge = HalfEdge(self.dcel)
+            new_site_edge = HalfEdge(self.dcel)
+            old_site_edge.incident_face = old_site.cell_face
+            new_site_edge.incident_face = new_site.cell_face
+            old_site_edge.twin = new_site_edge
+            new_site_edge.twin = old_site_edge
+            left_new_node.payload.half_edge = new_site_edge
+            right_new_node.payload.half_edge = old_site_edge
 
-        new_site.outer = new_site_edge
+            new_site.outer = new_site_edge
 
     def handle_circle_event(self, circle_event):
 
         # check the queue and remove all circle events involving the disappearing arc
         old_arc = circle_event.vanishing_arc_right_break_point
-        self.queue.remove(circle_event)
         old_arc.circle_event = None
         aln = self.tree.delete(old_arc)
         assert circle_event.vanishing_arc_left_break_point is aln.payload
+        # arc to the left and right of the old_arc
         left_arc = aln.payload
-        right_arc = aln.right_nbr.payload
+        if aln.right_nbr is not None:
+            right_arc = aln.right_nbr.payload
+            if right_arc.circle_event is not None:
+                self.queue.remove(right_arc.circle_event)
+                right_arc.circle_event = None
         if left_arc.circle_event is not None:
             self.queue.remove(left_arc.circle_event)
             left_arc.circle_event = None
-        if right_arc.circle_event is not None:
-            self.queue.remove(right_arc.circle_event)
-            right_arc.circle_event = None
 
         # check if the new triplets incur new circle events
-        insert_circle_event_if_exists(left_arc, self.queue)
-        insert_circle_event_if_exists(right_arc, self.queue)
+        insert_circle_event_if_exists(aln, self.queue)
+        if aln.right_nbr is not None:
+            insert_circle_event_if_exists(aln.right_nbr, self.queue)
 
         # DCEL manipulation
-        center, _ = circle_center_radius(circle_event.a, circle_event.b, circle_event.b)
-        new_vertex = Vertex(x=center[0], y=center[1])
-        e_left_from = aln.half_edge.twin
-        e_left_to = aln.half_edge
+        center, _ = circle_center_radius(circle_event.a, circle_event.b, circle_event.c)
+        new_vertex = Vertex(self.dcel, x=center[0], y=center[1])
+        # delete should not touch left_arc.half_edge, despite that its left_higher_site is changed
+        e_left_from = left_arc.half_edge.twin
+        e_left_to = left_arc.half_edge
         e_right_from = old_arc.half_edge.twin
         e_right_to = old_arc.half_edge
 
         new_vertex.incident_edge = e_left_from
-
+        # TODO 3
+        #  deleting the wrong arc.
         assert e_left_from.origin is None
         e_left_from.origin = new_vertex
         assert e_right_from.origin is None
@@ -206,8 +217,10 @@ def circle_center_radius(a, b, c):
 
     assert math.isclose(o1[0], o2[0]) and math.isclose(o1[0], o3[0]) and \
            math.isclose(o1[1], o2[1]) and math.isclose(o2[1], o3[1])
-
-    radius = math.sqrt((o1[0] - a[0]) ** 2 + (o1[1] - a[1]) ** 2)
+    if isinstance(a, Site):
+        radius = math.sqrt((o1[0] - a.x) ** 2 + (o1[1] - a.y) ** 2)
+    else:
+        radius = math.sqrt((o1[0] - a[0]) ** 2 + (o1[1] - a[1]) ** 2)
     center = o1
     return center, radius
 
@@ -220,13 +233,13 @@ def bisector(a, b):
     :return: the slope and the intercept
     """
 
-    try:
+    if isinstance(a, Site) and isinstance(b, Site):
+        ax, ay = a.x, a.y
+        bx, by = b.x, b.y
+    else:
         # point
         ax, ay = a
         bx, by = b
-    except TypeError:
-        ax, ay = a.x, a.y
-        bx, by = b.x, b.y
     if math.isclose(ax, bx):
         return 0, (by + ay) / 2
     ab_delta = (ay - by) / (ax - bx)
@@ -239,7 +252,11 @@ def bisector(a, b):
 def intersect(kcline1, kcline2):
     k1, c1 = kcline1
     k2, c2 = kcline2
-    return (c2 - c1) / (k1 - k2)
+    x = (c2 - c1) / (k1 - k2)
+    y = k1 * x + c1
+    yy = k2 * x + c2
+    assert math.isclose(y, yy)
+    return x, y
 
 
 class Comparable:
@@ -257,7 +274,7 @@ class EventQueue:
         self.q = []
 
     def in_place_sort(self):
-        sorted(self.q, key=lambda event: getattr(event, self.key))
+        sorted(self.q)
 
     def add(self, event):
         bisect.insort(self.q, event)
@@ -294,13 +311,16 @@ def insert_circle_event_if_exists(vanishing_arc_right_node, queue):
 
     a = vanishing_arc_left_break_point.left_lower_site
     c = vanishing_arc_right_break_point.left_higher_site
+    if a is c:
+        return None
 
     clp_x, clp_y = circle_lowest_point(a, b, c)
 
     if points_are_close((clp_x, clp_y), (b.x, b.y)):
         raise NotImplementedError("The site is directly below a breakpoint")
     else:
-        if clp_y < b.y:
+        # if the middle site is the highest, meaning that this current arc will disappear
+        if b.y >= a.y and b.y >= c.y:
             ce = CircleEvent(vanishing_arc_left_break_point, vanishing_arc_right_break_point, a, b, c, clp_y)
             assert vanishing_arc_right_break_point.circle_event is None
             vanishing_arc_right_break_point.circle_event = ce
