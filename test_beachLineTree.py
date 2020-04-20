@@ -15,7 +15,7 @@ class TestBeachLineTree(TestCase):
         print("hello")
 
     def test_delete(self):
-        tree = BeachLineTree()
+        tree = BeachLineTree(debug=True)
         tree.l = 1
         tree.insert(Site(0, 1))
         tree.l = 0
@@ -28,9 +28,9 @@ class TestBeachLineTree(TestCase):
         tree.plot()
         tree.consistency_test()
         tree.l = -1
-        # tree.plot()
+        tree.plot()
         tree.consistency_test()
-        tree.delete(arc_left_node.payload, arc_right_node.payload)
+        tree.delete(arc_right_node.payload)
         tree.consistency_test()
 
         print("hello")

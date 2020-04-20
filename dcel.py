@@ -9,14 +9,10 @@ class DCEL:
 
         self.demo = demo
         if self.demo:
-            face = Face()
-            self.naive_add_face(face)
+            face = Face(self)
+            face.name = "f" + repr(len(self.faces) + 1)
 
-    def naive_add_face(self, face):
-        face.name = "f" + repr(len(self.faces) + 1)
-        self.faces.append(face)
-
-    def naive_polygon(self, vertices, out_face):
+    def naive_polygon(self, vertices, out_face, name=None):
         """
         Insert a polygon by a list of vertices
         This function is for testing only.
@@ -29,8 +25,11 @@ class DCEL:
         for vertex in vertices:
             assert (isinstance(vertex, Vertex))
 
-        in_face = Face()
-        self.naive_add_face(in_face)
+        in_face = Face(self)
+        if name is None:
+            in_face.name = "f" + repr(len(self.faces) + 1)
+        else:
+            in_face.name=name
         # make edges
 
         edge_num = len(self.edges) + 1
@@ -45,8 +44,8 @@ class DCEL:
             else:
                 to_vertex = vertices[0]
 
-            in_edge = Edge(from_vertex)
-            out_edge = Edge(to_vertex)
+            in_edge = HalfEdge(self, from_vertex)
+            out_edge = HalfEdge(self, to_vertex)
             in_edge.name = "e" + str(edge_num) + ",1"
             out_edge.name = "e" + str(edge_num) + ",2"
             edge_num += 1
@@ -77,8 +76,8 @@ class DCEL:
         # connect all
         in_face.outer = in_edges[0]
 
-        self.vertices += vertices
-        self.edges += in_edges + out_edges
+        # self.vertices += vertices
+        # self.edges += in_edges + out_edges
 
     def __repr__(self):
         string = ""
@@ -94,11 +93,13 @@ class DCEL:
 
 
 class Vertex:
-    def __init__(self, x=None, y=None, incident_edge=None, name=None):
+    def __init__(self, dcel, x=None, y=None, incident_edge=None, name=None):
         self.x = x
         self.y = y
         self.incident_edge = incident_edge
         self.name = name
+        self.dcel = dcel
+        self.dcel.vertices.append(self)
 
     def assert_complete(self):
         assert (None not in [self.x, self.y, self.incident_edge])
@@ -114,10 +115,12 @@ class Vertex:
 
 
 class Face:
-    def __init__(self, outer=None, inner=None, name=None):
+    def __init__(self, dcel, outer=None, inners=None, name=None):
         self.outer = outer
-        self.inner = inner
+        self.inner = inners
         self.name = name
+        self.dcel = dcel
+        self.dcel.faces.append(self)
 
     def assert_complete(self):
         assert self.outer is not None
@@ -140,14 +143,16 @@ class Face:
         return self.name
 
 
-class Edge:
-    def __init__(self, origin=None, twin=None, incident_face=None, next_edge=None, prev_edge=None, name=None):
+class HalfEdge:
+    def __init__(self, dcel, origin=None, twin=None, incident_face=None, next_edge=None, prev_edge=None, name=None):
         self.origin = origin
         self.twin = twin
         self.incident_face = incident_face
         self.next_edge = next_edge
         self.prev_edge = prev_edge
         self.name = name
+        self.dcel = dcel
+        self.dcel.edges.append(self)
 
     def assert_complete(self):
         for i in (self.origin, self.twin, self.incident_face, self.next_edge, self.prev_edge):
@@ -161,18 +166,3 @@ class Edge:
 
     def __str__(self):
         return self.name
-
-
-def run_naive_polygon():
-    v1 = Vertex(0, 0, None, "v1")
-    v2 = Vertex(1, 0, None, "v2")
-    v3 = Vertex(0, 1, None, "v3")
-
-    dcel = DCEL(demo=True)
-    dcel.naive_polygon([v1, v2, v3], dcel.faces[0])
-
-    print(repr(dcel))
-
-
-if __name__ == '__main__':
-    run_naive_polygon()

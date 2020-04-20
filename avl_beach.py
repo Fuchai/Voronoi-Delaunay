@@ -44,6 +44,7 @@ class TreeNode:
     # def right_nbr(self,val):
     #     return s
 
+
 #
 # class Parabola:
 #     def __init__(self, site):
@@ -65,6 +66,7 @@ class Site(Payload):
         self.x = x
         self.y = y
         self.name = name
+        self.cell_face=None
 
     def __str__(self):
         return f"{self.name} ({self.x}, {self.y})"
@@ -96,12 +98,20 @@ class Site(Payload):
 
 
 class BreakPoint(Payload):
+    """
+    A break point also represents the arc to its left.
+    tree.delete(arc_right_break_point)
+    """
     def __init__(self, left_higher_site, left_lower_site):
         # site event parabola for the left twin break point
         self.left_higher_site = left_higher_site
         self.left_lower_site = left_lower_site
-        self.left_nbr=None
-        self.right_nbr=None
+        # self.left_nbr=None
+        # self.right_nbr=None
+        self.circle_event=None
+        # the incident face of this half edge is not the site of this arc
+        # assert self.half_edge.twin.incident_face is self.arc.site_of_arc().cell_face
+        self.half_edge=None
 
     def get_coordinates(self, l):
         # get parabolas
@@ -178,6 +188,9 @@ class BreakPoint(Payload):
 
     def __str__(self):
         return "bp: lh " + str(self.left_higher_site) + " ll " + str(self.left_lower_site)
+
+    def site_of_arc(self):
+        return self.left_lower_site
 
 
 # AVL tree class which supports insertion,
@@ -319,13 +332,13 @@ class BeachLineTree:
 
         return node, new_node
 
-    def node_to_arc_site(self, right_new_node):
-        # the insert function returns the right of the new breakpoints pair
-        # use this function to find which arc and site it represents
-        arc = (right_new_node, right_new_node.right_nbr)
-        site = right_new_node.payload.left_higher_site
-        assert site is right_new_node.right_nbr.payload.left_lower_site
-        return arc, site
+    # def node_to_arc_site(self, right_new_node):
+    #     # the insert function returns the right of the new breakpoints pair
+    #     # use this function to find which arc and site it represents
+    #     arc = (right_new_node, right_new_node.right_nbr)
+    #     site = right_new_node.payload.left_higher_site
+    #     assert site is right_new_node.right_nbr.payload.left_lower_site
+    #     return arc, site
 
     def find(self, key):
         def _find(node, _key):
@@ -342,7 +355,7 @@ class BeachLineTree:
     # It returns self.root of the modified subtree.
 
     # How do we delete during a circle event?
-    def delete(self, arc_left_break_point, arc_right_break_point):
+    def delete(self, arc_right_break_point):
         """
 
         :param arc_right_break_point: the right break point of the arc to be deleted
@@ -352,17 +365,19 @@ class BeachLineTree:
             self.consistency_test()
 
         # arc_left_node = arc_right_break_point.left_nbr
-        assert arc_left_break_point.left_higher_site is arc_right_break_point.left_lower_site
 
         # we want to remove the right break point from the tree
-        self.root = self._delete(self.root, arc_right_break_point)
+        self.root, arc_left_node = self._delete(self.root, arc_right_break_point)
         self.break_point_counts -= 1
+        arc_left_break_point = arc_left_node.payload
+        assert arc_left_break_point.left_higher_site is arc_right_break_point.left_lower_site
 
         # the arc left node needs to refer to the correct site and have the correct neighbors
         arc_left_break_point.left_higher_site = arc_right_break_point.left_higher_site
 
         if self.debug:
             self.consistency_test()
+        return arc_left_node
 
     def _delete(self, current_node, to_delete_node):
         """
@@ -373,36 +388,38 @@ class BeachLineTree:
         """
         # Step 1 - Perform standard BST delete
         if not current_node:
-            return current_node
+            raise ValueError("Node not found?")
 
         elif to_delete_node.eval(self.l) < current_node.eval(self.l):
-            ch = self._delete(current_node.left_child, to_delete_node)
+            # TODO I want the delete function to find me the left break point of the arc.
+            ch, arc_left_node = self._delete(current_node.left_child, to_delete_node)
             # a rotation in the subtree might have happened, which requires that the parent-child pointers to be changed
             # neighbor references do not change
             current_node.left_child = ch
             if ch:
                 ch.parent = current_node
 
-        elif to_delete_node.eval(self.l) > current_node.eval(self.l) or current_node is not to_delete_node:
-            ch = self._delete(current_node.right_child, to_delete_node)
+        elif to_delete_node.eval(self.l) > current_node.eval(self.l) or (current_node is not to_delete_node and \
+                                                                         current_node.payload is not to_delete_node):
+            ch, arc_left_node = self._delete(current_node.right_child, to_delete_node)
             current_node.right_child = ch
             if ch:
                 ch.parent = current_node
         else:
-            # found the node to be deleted
-            assert current_node is to_delete_node
+            # current node is to be deleted
+            assert current_node is to_delete_node or current_node.payload is to_delete_node
             if current_node.left_child is None and current_node.right_child is None:
                 if current_node.left_nbr is not None:
                     current_node.left_nbr.right_nbr = current_node.right_nbr
                 if current_node.right_nbr is not None:
                     current_node.right_nbr.left_nbr = current_node.left_nbr
-                return None
+                return None, current_node.left_nbr
             elif current_node.left_child is None:
                 if current_node.left_nbr is not None:
                     current_node.left_nbr.right_nbr = current_node.right_nbr
                 if current_node.right_nbr is not None:
                     current_node.right_nbr.left_nbr = current_node.left_nbr
-                return current_node.right_child
+                return current_node.right_child, current_node.left_nbr
 
             elif current_node.right_child is None:
                 if current_node.left_nbr is not None:
@@ -410,7 +427,7 @@ class BeachLineTree:
                 if current_node.right_nbr is not None:
                     current_node.right_nbr.left_nbr = current_node.left_nbr
 
-                return current_node.left_child
+                return current_node.left_child, current_node.left_nbr
             else:
                 # node has both children
                 temp = self.get_min_value_node(current_node.right_child)
@@ -423,11 +440,12 @@ class BeachLineTree:
                 #     temp.left_nbr = current_node.left_nbr
                 # current_node.left_nbr.right_nbr=current_node
 
-                ch = self._delete(current_node.right_child, temp)
+                ch, _ = self._delete(current_node.right_child, temp)
                 # rotate possible
                 current_node.right_child = ch
                 if ch is not None:
                     ch.parent = current_node
+                arc_left_node = current_node.left_nbr
 
         # If the subtree has only one node,
         # simply return it
@@ -466,7 +484,7 @@ class BeachLineTree:
             ch.parent = current_node
             return self.left_rotate(current_node)
 
-        return current_node
+        return current_node, arc_left_node
 
     def left_rotate(self, z):
         y = z.right_child
