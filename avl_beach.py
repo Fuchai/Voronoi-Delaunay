@@ -167,12 +167,16 @@ class BreakPoint(Payload):
                 else:
                     raise ValueError("Investigate this")
         else:
-            # TODO when does this happen?
-            x = -coef0 / coef1
-            y = self.left_higher_site.get_parabola_y(x, l)
-            yy = self.left_lower_site.get_parabola_y(x, l)
-            assert math.isclose(y, yy)
-            return x, y
+            # TODO when does this happen?\
+            if coef1 == 0:
+                assert b==0 and d==0
+                return (a+c)/2, float("inf")
+            else:
+                x = -coef0 / coef1
+                y = self.left_higher_site.get_parabola_y(x, l)
+                yy = self.left_lower_site.get_parabola_y(x, l)
+                assert math.isclose(y, yy)
+                return x, y
 
     def eval(self, l):
         return self.get_coordinates(l)[0]
@@ -200,6 +204,9 @@ class BreakPoint(Payload):
     def arc_to_site(self):
         return self.left_lower_site
 
+    def half_edge_to_incident_cell_site(self):
+        return self.left_higher_site
+
 
 # AVL tree class which supports insertion,
 # deletion operations
@@ -209,6 +216,186 @@ class BeachLineTree:
         self.l = None
         self.break_point_counts = 0
         self.debug = debug
+
+    # def insert(self, site):
+    #     """
+    #
+    #     :param site:
+    #     :return: the right new node, marking the arc to the right
+    #     """
+    #     if self.debug:
+    #         self.consistency_test()
+    #     # first site and second site are handled differently
+    #
+    #     # keep inserting sites, do not make them into break points
+    #     # if the site c is not co-linear, then re-organize the tree into break points
+    #     # insert site c normally and in the future
+    #
+    #
+    #     if self.root is None:
+    #         self.root = TreeNode(site)
+    #         left_new_node = None
+    #         right_new_node = None
+    #
+    #     elif self._horizontal_co_linear:
+    #         if site.y==self.root.payload.y:
+    #             # still co linear
+    #             # if len(self)==0:
+    #             #     assert isinstance(self.root, Site)
+    #             #     if site.x> self.root.x:
+    #             #         self.root=TreeNode(BreakPoint(site,self.root))
+    #             #     else:
+    #             #         self.root=TreeNode(BreakPoint(self.root, site))
+    #             #     self.break_point_counts += 1
+    #             # else:
+    #             self.root, new_node=self._insert(self.root, site)
+    #             self.break_point_counts+=1
+    #             left_new_node = None
+    #             right_new_node = None
+    #         else:
+    #             # the current site breaks co-linearity
+    #             # turn all the nodes in the tree into break points one by one
+    #             self._horizontal_co_linear = False
+    #
+    #             if len(self)==0:
+    #                 # if there is only one site, then
+    #                 old_site = self.root.payload
+    #                 self.root = None
+    #
+    #                 self.root, left_new_node = self._insert(self.root, site)
+    #                 # have to insert from root because the tree might be imbalanced
+    #                 self.root, right_new_node = self._insert(self.root, site)
+    #
+    #                 assert left_new_node.right_nbr is right_new_node
+    #                 assert left_new_node is right_new_node.parent
+    #
+    #                 left_break_point = BreakPoint(site, old_site)
+    #                 right_break_point = BreakPoint(old_site, site)
+    #                 left_new_node.payload = left_break_point
+    #                 right_new_node.payload = right_break_point
+    #
+    #                 self.break_point_counts += 2
+    #             else:
+    #                 # if there are multiple sites, then turn them into consecutive break points
+    #                 left_site_node=None
+    #                 for right_site_node in self:
+    #                     if left_site_node is not None:
+    #                         bp=BreakPoint(right_site_node.payload, left_site_node.payload)
+    #                         left_site_node.payload=bp
+    #                     left_site_node=right_site_node
+    #
+    #                 # delete the right most site node
+    #                 self._delete(self.root, left_site_node.payload)
+    #                 # insert normally
+    #                 return self.insert(site)
+    #
+    #     else:
+    #         # third site and so on
+    #         self.root, left_new_node = self._insert(self.root, site)
+    #         # have to insert from root because the tree might be imbalanced
+    #         self.root, right_new_node = self._insert(self.root, site)
+    #
+    #         assert left_new_node.right_nbr is right_new_node
+    #
+    #         if left_new_node is right_new_node.parent:
+    #             new_parent = left_new_node
+    #         else:
+    #             new_parent = right_new_node
+    #
+    #         if new_parent is new_parent.parent.left_child:
+    #             old_site = new_parent.parent.payload.left_lower_site
+    #         else:
+    #             old_site = new_parent.parent.payload.left_higher_site
+    #
+    #         left_break_point = BreakPoint(site, old_site)
+    #         right_break_point = BreakPoint(old_site, site)
+    #         left_new_node.payload = left_break_point
+    #         right_new_node.payload = right_break_point
+    #         self.break_point_counts += 2
+    #     if self.debug:
+    #         self.consistency_test()
+    #     return left_new_node, right_new_node
+
+    #
+    # def insert(self, site):
+    #     """
+    #
+    #     :param site:
+    #     :return: the right new node, marking the arc to the right
+    #     """
+    #     if self.debug:
+    #         self.consistency_test()
+    #     # first site and second site are handled differently
+    #     if self.root is None:
+    #         self.root = site
+    #         left_new_node = None
+    #         right_new_node = None
+    #     elif self.root is not None and isinstance(self.root, Site):
+    #         # second site
+    #         # the root is a parabola by a site
+    #         assert len(self) == 0
+    #         old_site = self.root
+    #         self.root = None
+    #
+    #         self.root, left_new_node = self._insert(self.root, site)
+    #         # have to insert from root because the tree might be imbalanced
+    #         self.root, right_new_node = self._insert(self.root, site)
+    #
+    #         assert left_new_node.right_nbr is right_new_node
+    #
+    #         assert left_new_node is right_new_node.parent
+    #         assert left_new_node.right_nbr is right_new_node
+    #         assert right_new_node.left_nbr is left_new_node
+    #
+    #         left_break_point = BreakPoint(site, old_site)
+    #         right_break_point = BreakPoint(old_site, site)
+    #         left_new_node.payload = left_break_point
+    #         right_new_node.payload = right_break_point
+    #
+    #         self.break_point_counts += 2
+    #     else:
+    #         # third site and so on
+    #         self.root, left_new_node = self._insert(self.root, site)
+    #         # have to insert from root because the tree might be imbalanced
+    #         self.root, right_new_node = self._insert(self.root, site)
+    #
+    #         assert left_new_node.right_nbr is right_new_node
+    #
+    #         if left_new_node is right_new_node.parent:
+    #             new_parent = left_new_node
+    #         else:
+    #             new_parent = right_new_node
+    #
+    #         if new_parent is new_parent.parent.left_child:
+    #             old_site = new_parent.parent.payload.left_lower_site
+    #         else:
+    #             old_site = new_parent.parent.payload.left_higher_site
+    #
+    #         left_break_point = BreakPoint(site, old_site)
+    #         right_break_point = BreakPoint(old_site, site)
+    #         left_new_node.payload = left_break_point
+    #         right_new_node.payload = right_break_point
+    #         self.break_point_counts += 2
+    #     if self.debug:
+    #         self.consistency_test()
+    #     return left_new_node, right_new_node
+
+
+    def insert_horizontal_colinear(self, sites):
+        assert self.root is None
+        bps = []
+        if len(sites)!=1:
+            for i in range(len(sites)-1):
+                left_site=sites[i]
+                right_site=sites[i+1]
+                bp=BreakPoint(right_site, left_site)
+                self.root, new_node=self._insert(self.root,bp)
+                self.break_point_counts+=1
+                bps.append(bp)
+        else:
+            self.root=sites[0]
+        return bps
+
 
     def insert(self, site):
         """
@@ -237,8 +424,8 @@ class BeachLineTree:
             assert left_new_node.right_nbr is right_new_node
 
             assert left_new_node is right_new_node.parent
-            left_new_node.right_nbr = right_new_node
-            right_new_node.left_nbr = left_new_node
+            assert left_new_node.right_nbr is right_new_node
+            assert right_new_node.left_nbr is left_new_node
 
             left_break_point = BreakPoint(site, old_site)
             right_break_point = BreakPoint(old_site, site)
@@ -274,12 +461,6 @@ class BeachLineTree:
         return left_new_node, right_new_node
 
     def _insert(self, node, payload, left_nbr=None, right_nbr=None):
-        """
-        Plan:
-        Insert two nodes at a time, each as a breakpoint, marking left right by id or whatever
-        No leaf nodes will be kept. Search proceed until leaf break point. Leaf break point yields the leaf.
-        Implement find to return the break point on the left.
-        """
         # Step 1 - Perform normal BST
         if not node:
             new_node = TreeNode(payload)
@@ -301,7 +482,6 @@ class BeachLineTree:
         #     node.right_child = ch
         #     ch.parent = node
         else:
-            # TODO "Site directly below a breakpoint?"
             ch, new_node = self._insert(node.right_child, payload, left_nbr=node, right_nbr=right_nbr)
             node.right_child = ch
             ch.parent = node
@@ -474,7 +654,7 @@ class BeachLineTree:
         # If the subtree has only one node,
         # simply return it
         if current_node is None:
-            return current_node
+            return current_node, arc_left_node
 
         # Step 2 - Update the height of the
         # ancestor node
@@ -488,25 +668,25 @@ class BeachLineTree:
         # then try out the 4 cases
         # Case 1 - Left Left
         if balance > 1 and self.get_balance(current_node.left_child) >= 0:
-            return self.right_rotate(current_node)
+            return self.right_rotate(current_node), arc_left_node
 
             # Case 2 - Right Right
         if balance < -1 and self.get_balance(current_node.right_child) <= 0:
-            return self.left_rotate(current_node)
+            return self.left_rotate(current_node), arc_left_node
 
             # Case 3 - Left Right
         if balance > 1 and self.get_balance(current_node.left_child) < 0:
             ch = self.left_rotate(current_node.left_child)
             current_node.left_child = ch
             ch.parent = current_node
-            return self.right_rotate(current_node)
+            return self.right_rotate(current_node), arc_left_node
 
             # Case 4 - Right Left
         if balance < -1 and self.get_balance(current_node.right_child) > 0:
             ch = self.right_rotate(current_node.right_child)
             current_node.right_child = ch
             ch.parent = current_node
-            return self.left_rotate(current_node)
+            return self.left_rotate(current_node), arc_left_node
 
         return current_node, arc_left_node
 
