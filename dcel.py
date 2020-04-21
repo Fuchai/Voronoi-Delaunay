@@ -29,7 +29,7 @@ class DCEL:
         if name is None:
             in_face.name = "f" + repr(len(self.faces) + 1)
         else:
-            in_face.name=name
+            in_face.name = name
         # make edges
 
         edge_num = len(self.edges) + 1
@@ -166,3 +166,11 @@ class HalfEdge:
 
     def __str__(self):
         return self.name
+
+    @property
+    def destination(self):
+        return self.twin.origin
+
+    @destination.setter
+    def destination(self, val):
+        self.twin.origin = val

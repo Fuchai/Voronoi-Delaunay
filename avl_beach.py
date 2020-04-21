@@ -66,7 +66,7 @@ class Site(Payload):
         self.x = x
         self.y = y
         self.name = name
-        self.cell_face = None
+        self.cell = None
 
     def __str__(self):
         return f"{self.name} ({self.x}, {self.y})"
@@ -197,7 +197,7 @@ class BreakPoint(Payload):
     def __str__(self):
         return "bp: lh " + str(self.left_higher_site) + " ll " + str(self.left_lower_site)
 
-    def site_of_arc(self):
+    def arc_to_site(self):
         return self.left_lower_site
 
 
@@ -634,7 +634,7 @@ class BeachLineTree:
             assert count == len(self)
 
     def plot(self):
-        if isinstance(self.root, Site):
+        if len(self)==0:
             pass
         else:
             mmin = self.get_min_value_node(self.root)

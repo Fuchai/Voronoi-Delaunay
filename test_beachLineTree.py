@@ -4,7 +4,7 @@ from avl_beach import *
 
 class TestBeachLineTree(TestCase):
     def test_insert(self):
-        tree = BeachLineTree()
+        tree = BeachLineTree(debug=True)
         tree.l = 1
         tree.insert(Site(0, 1))
         tree.l = 0
@@ -45,7 +45,7 @@ class TestBeachLineTree(TestCase):
         tree.l = -0.5
         assert (arc_right_node.eval(tree.l) < bb.eval(tree.l))
         tree.l = -1
-        tree.delete(arc_right_node)
+        tree.delete(arc_right_node.payload)
         tree.plot()
 
         for node in tree:
