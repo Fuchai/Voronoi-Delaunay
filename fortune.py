@@ -18,41 +18,47 @@ class Fortune:
         self.vertex_count = 1
         self._horizontal_co_linear = []
 
+        self._unbound_edges_args = []
+
+        self.max_x = -float("inf")
+        self.max_y = -float("inf")
+        self.min_x = float("inf")
+        self.min_y = float("inf")
+        self.box_border = 10
+
     def run(self):
         ## init all
         # dcel
         self.dcel = DCEL()
         uf = Face(self.dcel)
         uf.name = "uf"
-        self.dcel.faces.append(uf)
 
-        # create the bounding box
-        max_x = -float("inf")
-        max_y = -float("inf")
-        min_x = float("inf")
-        min_y = float("inf")
+        # create the bounding box for now, this will not be the final bounding box.
 
         for site in self.sites:
-            if site.x > max_x:
-                max_x = site.x
-            if site.x < min_x:
-                min_x = site.x
-            if site.y > max_y:
-                max_y = site.y
-            if site.y < min_y:
-                min_y = site.y
+            if site.x > self.max_x:
+                self.max_x = site.x
+            if site.x < self.min_x:
+                self.min_x = site.x
+            if site.y > self.max_y:
+                self.max_y = site.y
+            if site.y < self.min_y:
+                self.min_y = site.y
 
-        diam = max_x - min_x
-        if max_y - min_y > diam:
-            diam = max_y - min_y
-        center_x = (max_x + min_x) / 2
-        center_y = (max_y + min_y) / 2
+        diam = self.max_x - self.min_x
+        if self.max_y - self.min_y > diam:
+            diam = self.max_y - self.min_y
+        center_x = (self.max_x + self.min_x) / 2
+        center_y = (self.max_y + self.min_y) / 2
 
-        box_border = 1
-        self.b1 = Vertex(self.dcel, center_x - diam / 2 - box_border, center_y - diam / 2 - box_border, None, "b1")
-        self.b2 = Vertex(self.dcel, center_x + diam / 2 + box_border, center_y - diam / 2 - box_border, None, "b2")
-        self.b3 = Vertex(self.dcel, center_x + diam / 2 + box_border, center_y + diam / 2 + box_border, None, "b3")
-        self.b4 = Vertex(self.dcel, center_x - diam / 2 - box_border, center_y + diam / 2 + box_border, None, "b4")
+        self.b1 = Vertex(self.dcel, center_x - diam / 2 - self.box_border, center_y - diam / 2 - self.box_border, None,
+                         "b1")
+        self.b2 = Vertex(self.dcel, center_x + diam / 2 + self.box_border, center_y - diam / 2 - self.box_border, None,
+                         "b2")
+        self.b3 = Vertex(self.dcel, center_x + diam / 2 + self.box_border, center_y + diam / 2 + self.box_border, None,
+                         "b3")
+        self.b4 = Vertex(self.dcel, center_x - diam / 2 - self.box_border, center_y + diam / 2 + self.box_border, None,
+                         "b4")
         self.dcel.naive_polygon([self.b1, self.b2, self.b3, self.b4], uf, "bounding box")
 
         # we use event queue to store the points on the box so that we achieve O(log n) performance
@@ -72,33 +78,37 @@ class Fortune:
         while len(self.queue) != 0:
             event = self.queue.pop()
             if self.debug:
-                self.tree.consistency_test()
-            self.tree.l = event.y
-            self.plot(event)
+                self.consistency_test()
+            self.tree.y = event.y
             if self.debug:
-                self.tree.consistency_test()
+                self.consistency_test()
             self.plot(event)
             if event.is_site_event():
                 self.handle_site_event(event)
             else:
                 self.handle_circle_event(event)
+            if self.debug:
+                self.consistency_test()
             self.plot(event)
 
         # get unbounded edges again
         # insert bounding box vertices
         self.finish_unbounded_edges()
 
-        # self.label_bounding_box()
+        self.label_bounding_box()
+        self.plot(final=True, arrow=False)
+        self.resize_bounding_box()
 
-        self.plot(final=True)
+        self.plot(final=True, arrow=False)
+        print("Done")
 
     def insert_horizontal_colinear(self):
         sites = sorted(self._horizontal_co_linear, key=lambda site: site.x)
         breakpoints = self.tree.insert_horizontal_colinear(sites)
         # add parallel edges between the cells.
-        if len(breakpoints)!=0:
-            bp=None
-            from_edge=None
+        if len(breakpoints) != 0:
+            bp = None
+            to_edge = None
             for i in range(len(breakpoints)):
                 bp = breakpoints[i]
                 left_site = sites[i]
@@ -110,9 +120,9 @@ class Fortune:
                 from_edge.twin = to_edge
 
                 # DCEL manipulation
-                bp.site.cell = Face(self.dcel, name="c" + bp.site.name[1:])
-                self.cell_site[bp.site.cell] = bp.site
-                bp.site.cell.outer=from_edge
+                bp.left_lower_site.cell = Face(self.dcel, name="c" + bp.left_lower_site.name[1:])
+                self.cell_site[bp.left_lower_site.cell] = bp.left_lower_site
+                bp.left_lower_site.cell.outer = from_edge
 
                 origin = Vertex(self.dcel, x=(left_site.x + right_site.x) / 2, y=self.b3.y, incident_edge=to_edge,
                                 name="bb")
@@ -121,17 +131,16 @@ class Fortune:
                 from_edge.incident_face = left_site
 
                 bp.half_edge = to_edge
-                from_edge=to_edge
+                # from_edge=to_edge
 
             # set the last site
-            bp.site.cell = Face(self.dcel, name="c" + bp.site.name[1:])
-            self.cell_site[bp.site.cell] = bp.site
-            bp.site.cell.outer = from_edge
+            bp.left_higher_site.cell = Face(self.dcel, name="c" + bp.left_higher_site.name[1:])
+            self.cell_site[bp.left_higher_site.cell] = bp.left_higher_site
+            bp.left_higher_site.cell.outer = to_edge
         else:
-            site=sites[0]
+            site = sites[0]
             site.cell = Face(self.dcel, name="c" + site.name[1:])
             self.cell_site[site.cell] = site
-            # bp.site.cell.outer = from_edge
             # TODO check this
         self._horizontal_co_linear = None
 
@@ -167,11 +176,11 @@ class Fortune:
             #     directly_under_an_arc=False
 
             # insert new circle event for triplets (a, b, new) and (new, b, a)
-            insert_circle_event_if_exists(left_new_node, self.queue)
+            self.insert_circle_event_if_exists(left_new_node, self.queue)
 
             b_node = right_new_node.right_nbr
             if b_node is not None:  # and not directly_under_an_arc:
-                insert_circle_event_if_exists(b_node, self.queue)
+                self.insert_circle_event_if_exists(b_node, self.queue)
 
             # DCEL manipulation
             new_site.cell = Face(self.dcel, name="c" + new_site.name[1:])
@@ -215,13 +224,21 @@ class Fortune:
             left_arc.circle_event = None
 
         # check if the new triplets incur new circle events
-        insert_circle_event_if_exists(aln, self.queue)
+        self.insert_circle_event_if_exists(aln, self.queue)
         if aln.right_nbr is not None:
-            insert_circle_event_if_exists(aln.right_nbr, self.queue)
+            self.insert_circle_event_if_exists(aln.right_nbr, self.queue)
 
         # DCEL manipulation
         center, _ = circle_center_radius(circle_event.a, circle_event.b, circle_event.c)
         new_vertex = Vertex(self.dcel, x=center[0], y=center[1], name="v" + str(self.vertex_count))
+        if self.max_x < center[0]:
+            self.max_x = center[0]
+        if self.min_x > center[0]:
+            self.min_x = center[0]
+        if self.max_y < center[1]:
+            self.max_y = center[1]
+        if self.min_y > center[1]:
+            self.min_y = center[1]
         self.vertex_count += 1
 
         left_edge_to = left_arc.half_edge
@@ -257,35 +274,44 @@ class Fortune:
         # self.finish_unbounded_edges_helper(left_edge_to, left_arc.left_higher_site, left_arc.left_lower_site, bottom=False)
         # self.finish_unbounded_edges_helper(right_edge_to, old_site, left_arc.left_higher_site, bottom=False)
 
-        for break_point, unbound_edge, left_site, right_site in \
-                zip((left_arc, old_arc), (left_edge_to, right_edge_to),
-                    (left_arc.left_lower_site, old_site), (old_site, left_arc.left_higher_site)):
-            if unbound_edge.origin is None:
-                # then this edge is unbounded
-                k, c = bisector(left_site, right_site)
-                # the unbounded edge might intersect left, top or right border
-                # top
-                xx = (self.b3.y - c) / k
-                if self.b1.x < xx < self.b3.x:
-                    vertex = Vertex(self.dcel, x=xx, y=self.b3.y, name="bb")
-                    unbound_edge.origin = vertex
-                    self.border_vertices_queue["top"].add(Comparable(vertex, "x"))
-                else:
-                    # left
-                    yy = k * self.b1.x + c
-                    if new_vertex.y < yy:
-                        vertex = Vertex(self.dcel, x=self.b1.x, y=yy, name="bb")
-                        unbound_edge.origin = vertex
-                        self.border_vertices_queue["left"].add(Comparable(vertex, "y"))
-                    else:
-                        # right
-                        yy = k * self.b3.x + c
-                        if new_vertex.y < yy:
-                            vertex = Vertex(self.dcel, x=self.b3.x, y=yy, name="bb")
-                            unbound_edge.origin = vertex
-                            self.border_vertices_queue["right"].add(Comparable(vertex, "y"))
-                        else:
-                            raise ValueError("Why does this edge not have an origin?")
+        if left_edge_to.origin is None:
+            self.finish_unbounded_edges_helper(left_edge_to.twin, left_arc.left_lower_site, old_site)
+        if right_edge_to.origin is None:
+            self.finish_unbounded_edges_helper(right_edge_to.twin, old_site, left_arc.left_higher_site)
+
+        # # TODO this chunk of code almost does not work.
+        # for break_point, unbound_edge, left_site, right_site in \
+        #         zip((left_arc, old_arc), (left_edge_to, right_edge_to),
+        #             (left_arc.left_lower_site, old_site), (old_site, left_arc.left_higher_site)):
+        #     if unbound_edge.origin is None:
+        #         # then this edge is unbounded
+        #         k, c = bisector(left_site, right_site)
+        #         # the unbounded edge might intersect left, top or right border
+        #         # top
+        #         xx = (self.b3.y - c) / k
+        #         if self.b1.x < xx < self.b3.x:
+        #             vertex = Vertex(self.dcel, x=xx, y=self.b3.y, name="bb")
+        #             unbound_edge.origin = vertex
+        #             vertex.incident_edge = unbound_edge
+        #             self.border_vertices_queue["top"].add(Comparable(vertex, "x"))
+        #         else:
+        #             # left
+        #             yy = k * self.b1.x + c
+        #             if new_vertex.y < yy:
+        #                 vertex = Vertex(self.dcel, x=self.b1.x, y=yy, name="bb")
+        #                 unbound_edge.origin = vertex
+        #                 vertex.incident_edge = unbound_edge
+        #                 self.border_vertices_queue["left"].add(Comparable(vertex, "y"))
+        #             else:
+        #                 # right
+        #                 yy = k * self.b3.x + c
+        #                 if new_vertex.y < yy:
+        #                     vertex = Vertex(self.dcel, x=self.b3.x, y=yy, name="bb")
+        #                     unbound_edge.origin = vertex
+        #                     vertex.incident_edge = unbound_edge
+        #                     self.border_vertices_queue["right"].add(Comparable(vertex, "y"))
+        #                 else:
+        #                     raise ValueError("Why does this edge not have an origin?")
 
         # # delete should not touch left_arc.half_edge, despite that its left_higher_site is changed
         # e_left_from = left_arc.half_edge.twin
@@ -340,71 +366,138 @@ class Fortune:
         #             else:
         #                 raise ValueError("Why does this edge not have an origin?")
 
-    def plot(self, event=None, final=False):
+    def insert_circle_event_if_exists(self, vanishing_arc_right_node, queue):
+        if vanishing_arc_right_node.left_nbr is not None:
+            vanishing_arc_left_break_point = vanishing_arc_right_node.left_nbr.payload
+            vanishing_arc_right_break_point = vanishing_arc_right_node.payload
+
+            b = vanishing_arc_left_break_point.left_higher_site
+            assert b is vanishing_arc_right_break_point.left_lower_site
+
+            a = vanishing_arc_left_break_point.left_lower_site
+            c = vanishing_arc_right_break_point.left_higher_site
+            if a is c:
+                return None
+            if not colinear(a, b, c):
+                clp_x, clp_y = circle_lowest_point(a, b, c)
+                center, radius = circle_center_radius(a, b, c)
+                # check if the breakpoints converge: head
+                converge = True
+                for left, right in ((a, b), (b, c)):
+                    vector_ab = (right.x - left.x, right.y - left.y)
+                    mid = ((left.x + right.x) / 2, (right.y + left.y) / 2)
+                    vector_cc = (center[0] - mid[0], center[1] - mid[1])
+                    cp = cross_product(vector_ab, vector_cc)
+                    if cp > 0:
+                        converge = False
+
+                if converge and clp_y < self.tree.y:
+                    if points_are_close((clp_x, clp_y), (b.x, b.y)):
+                        raise NotImplementedError("The site is directly below a breakpoint")
+                    else:
+                        # if middle vanishes
+                        if vanishing_arc_right_break_point.left_lower_site is vanishing_arc_left_break_point.left_higher_site:
+                            ce = CircleEvent(vanishing_arc_left_break_point, vanishing_arc_right_break_point, a, b, c,
+                                             clp_x, clp_y)
+                            assert vanishing_arc_right_break_point.circle_event is None
+                            vanishing_arc_right_break_point.circle_event = ce
+                            queue.add(ce)
+                            return ce
+                        elif math.isclose(clp_y, b.y):
+                            raise NotImplementedError("Tangent new site")
+
+    def plot(self, event=None, final=False, arrow=False):
+        def site_to_color(site):
+            cm = plt.cm.get_cmap("tab10")
+            site_num = int(site.name[1:])
+            color = cm(1. * site_num / len(self.sites))
+            return color
+
         # plot dcel
         dcel = self.dcel
-        plt.figure()
+        fig, ax = pl.subplots()
+
         lines = []
         for edge in dcel.edges:
             try:
-                lines.append([(edge.origin.x, edge.origin.y), (edge.destination.x, edge.destination.y)])
+                if arrow:
+                    ax.arrow(edge.origin.x, edge.origin.y, edge.destination.x - edge.origin.x,
+                             edge.destination.y - edge.origin.y,
+                             head_width=0.15, head_length=0.2, ec=None, fc=None, length_includes_head=True)
+                else:
+                    lines.append([(edge.origin.x, edge.origin.y), (edge.destination.x, edge.destination.y)])
             except AttributeError:
-                pass
+                if final:
+                    raise
+                else:
+                    pass
 
-        lc = mc.LineCollection(lines)
-        fig, ax = pl.subplots()
-        ax.add_collection(lc)
-        # ax.set_aspect('equal', 'box')
-
-        ax.set(xlim=(self.b1.x - 1, self.b3.x + 1), ylim=(self.b1.y - 1, self.b3.y + 1))
         for vertex in self.dcel.vertices:
             ax.plot([vertex.x], [vertex.y], marker='o', markersize=3, color="red")
+            ax.annotate(s=str(vertex), xy=(vertex.x, vertex.y), xytext=(-3, 5), textcoords='offset points')
+
         for cell, site in self.cell_site.items():
-            ax.plot([site.x], [site.y], marker='o', markersize=3, color="purple")
+            ax.plot([site.x], [site.y], marker='o', markersize=3, color=site_to_color(site))
+            ax.annotate(s=str(site), xy=(site.x, site.y), xytext=(-3, 5), textcoords='offset points')
 
         if not final:
             if len(self.tree) != 0:
                 # plot the current beach line
-                left_x = self.b1.x - 1
+                left_x = None
                 last_node = None
+                right_x = None
                 for node in self.tree:
                     # repeatedly plot the left site
                     bp = node.payload
-                    right_x, y = bp.get_coordinates(self.tree.l)
-                    ax.plot([right_x], [y], marker='o', markersize=3, color="green")
+                    right_x, right_y = bp.get_coordinates(self.tree.y)
                     site = bp.left_lower_site
+                    ax.plot([right_x], [right_y], marker='o', markersize=3, color="green")
+                    ax.annotate(s=bp.left_lower_site.name + " " + bp.left_higher_site.name, xy=(right_x, right_y),
+                                xytext=(-3, -3), textcoords='offset points')
+                    if left_x is None:
+                        left_x = right_x - 1
                     x = np.linspace(left_x, right_x, 5000)
                     left_x = right_x
-                    if math.isclose(site.y, self.tree.l):
+                    if math.isclose(site.y, self.tree.y):
                         ax.axvline(x=site.x)
                     else:
-                        y = site.get_parabola_y(x, self.tree.l)
-                        ax.plot(x, y)
+                        color = site_to_color(site)
+                        y = site.get_parabola_y(x, self.tree.y)
+                        ax.plot(x, y, color=color)
                     last_node = node
 
                     # plot unfinished edges
                     try:
-                        lines.append([(bp.half_edge.origin.x, bp.half_edge.origin.y), (right_x, y)])
+                        lines.append([(bp.half_edge.origin.x, bp.half_edge.origin.y), (right_x, right_y)])
                     except AttributeError:
                         pass
 
                 # plot the last site
                 site = last_node.payload.left_higher_site
-                x = np.linspace(left_x, self.b3.x + 1, 5000)
-                if math.isclose(site.y, self.tree.l):
+                x = np.linspace(left_x, right_x + 1, 5000)
+                if math.isclose(site.y, self.tree.y):
                     ax.axvline(x=site.x)
                 else:
-                    y = site.get_parabola_y(x, self.tree.l)
-                    ax.plot(x, y)
+                    y = site.get_parabola_y(x, self.tree.y)
+                    ax.plot(x, y, color=site_to_color(site))
 
             # plot the sweeping line
-            ax.axhline(y=self.tree.l)
+            ax.axhline(y=self.tree.y)
             if event:
-                ax.plot([event.x], [event.y], marker='X', markersize=3, color="red")
+                ax.plot([event.x], [event.y], marker='X', markersize=3,
+                        color="red" if not isinstance(event, SiteEvent) else site_to_color(event.site))
+
+        lc = mc.LineCollection(lines)
+        ax.add_collection(lc)
+
+        ax.set_aspect('equal', 'box')
         fig.set_size_inches(8, 8)
+        # ax.set(xlim=(self.b1.x - 1, self.b3.x + 1), ylim=(self.b1.y - 1, self.b3.y + 1))
+
         fig.show()
 
-    def finish_unbounded_edges_helper(self, unbound_edge, incident_site, co_site, bottom=True):
+    def finish_unbounded_edges_helper(self, unbound_edge, incident_site, co_site, replace=None):
+
         origin = ((incident_site.x + co_site.x) / 2, (incident_site.y + co_site.y) / 2)
         incident_co = (co_site.x - incident_site.x, co_site.y - incident_site.y)
 
@@ -420,35 +513,56 @@ class Fortune:
             # right
             intercept = d / c * (maxx - a) + b
             if miny <= intercept < maxy:
-                border_vertex = Vertex(self.dcel, x=maxx, y=intercept, name="bbb")
-                unbound_edge.destination = border_vertex
-                self.border_vertices_queue["right"].add(Comparable(border_vertex, "y"))
+                if replace is None:
+                    border_vertex = Vertex(self.dcel, x=maxx, y=intercept, name="bbb")
+                    unbound_edge.destination = border_vertex
+                    border_vertex.incident_edge = unbound_edge.twin
+                    self.border_vertices_queue["right"].add(Comparable(border_vertex, "y"))
+                else:
+                    replace.x = maxx
+                    replace.y = intercept
         if c < 0:
             # left
             intercept = d / c * (minx - a) + b
             if miny < intercept <= maxy:
-                assert border_vertex is None
-                border_vertex = Vertex(self.dcel, x=minx, y=intercept, name="bbb")
-                unbound_edge.destination = border_vertex
-                self.border_vertices_queue["left"].add(Comparable(border_vertex, "y"))
+                if replace is None:
+                    assert border_vertex is None
+                    border_vertex = Vertex(self.dcel, x=minx, y=intercept, name="bbb")
+                    unbound_edge.destination = border_vertex
+                    border_vertex.incident_edge = unbound_edge.twin
+                    self.border_vertices_queue["left"].add(Comparable(border_vertex, "y"))
+                else:
+                    replace.x = minx
+                    replace.y = intercept
         if d > 0:
             # top
             intercept = c / d * (maxy - b) + a
             if minx < intercept <= maxx:
-                assert border_vertex is None
-                border_vertex = Vertex(self.dcel, x=intercept, y=maxy, name="bbb")
-                unbound_edge.destination = border_vertex
-                self.border_vertices_queue["top"].add(Comparable(border_vertex, "x"))
-        if bottom:
-            if d < 0:
-                # bottom
-                intercept = c / d * (miny - b) + a
-                if minx <= intercept < maxx:
+                if replace is None:
+                    assert border_vertex is None
+                    border_vertex = Vertex(self.dcel, x=intercept, y=maxy, name="bbb")
+                    unbound_edge.destination = border_vertex
+                    border_vertex.incident_edge = unbound_edge.twin
+                    self.border_vertices_queue["top"].add(Comparable(border_vertex, "x"))
+                else:
+                    replace.x = intercept
+                    replace.y = maxy
+        if d < 0:
+            # bottom
+            intercept = c / d * (miny - b) + a
+            if minx <= intercept < maxx:
+                if replace is None:
                     assert border_vertex is None
                     border_vertex = Vertex(self.dcel, x=intercept, y=miny, name="bbb")
                     unbound_edge.destination = border_vertex
+                    border_vertex.incident_edge = unbound_edge.twin
                     self.border_vertices_queue["bottom"].add(Comparable(border_vertex, "x"))
+                else:
+                    replace.x = intercept
+                    replace.y = miny
+        if replace is None:
             assert border_vertex is not None
+            self._unbound_edges_args.append((unbound_edge, incident_site, co_site, border_vertex))
 
     def finish_unbounded_edges(self):
         if self._horizontal_co_linear:
@@ -456,6 +570,7 @@ class Fortune:
 
         for node in self.tree:
             break_point = node.payload
+            bp_coors = break_point.get_coordinates(self.tree.y)
             unbound_edge = break_point.half_edge
             incident_site = break_point.left_higher_site
             co_site = break_point.left_lower_site
@@ -529,18 +644,79 @@ class Fortune:
         directions = ["bottom", "right", "top", "left"]
         origins = [self.b1, self.b2, self.b3, self.b4]
 
+        num = 5
+
         for i, direction in enumerate(directions):
             queue = self.border_vertices_queue[direction]
-            origin = origins[i]
-            edge = origin.incident_edge
-            outer = edge.twin
-            if i % 2 == 0:
+            prev_vertex = origins[i]
+            prev_edge = prev_vertex.incident_edge
+
+            if i < 2:
                 iter = queue
             else:
                 iter = reversed(queue)
 
-            for border_node in iter:
-                pass
+            # vertex = None
+            # edge = None
+
+            for j, cmp in enumerate(iter):
+                vertex = cmp.obj
+                vertex.name = "b" + str(num)
+                num += 1
+                edge = HalfEdge(self.dcel)
+                twin_edge = HalfEdge(self.dcel)
+                edge.twin = twin_edge
+                twin_edge.twin = edge
+
+                edge.origin = vertex
+                prev_edge.destination = vertex
+
+                prev_edge.next_edge = vertex.incident_edge
+                vertex.incident_edge.twin.next_edge = edge
+                edge.prev_edge = vertex.incident_edge.twin
+                twin_edge.next_edge = prev_edge.twin
+
+                prev_edge.incident_face = vertex.incident_edge.incident_face
+
+                prev_edge = edge
+                prev_vertex = vertex
+
+            prev_edge.next_edge = origins[(i + 1) % 4].incident_edge
+            prev_edge.destination = origins[(i + 1) % 4]
+            prev_edge.incident_face = prev_vertex.incident_edge.twin.incident_face
+
+    def resize_bounding_box(self):
+        # we do not know the size of the bounding box unless we get all the vertices of the graph
+        # need to resize in the end.
+
+        # Vertices are the same vertices, but the location of all unbounded edge vertices need to be recomputed
+
+        # get new box size
+        diam = self.max_x - self.min_x
+        if self.max_y - self.min_y > diam:
+            diam = self.max_y - self.min_y
+        center_x = (self.max_x + self.min_x) / 2
+        center_y = (self.max_y + self.min_y) / 2
+
+        self.b1.x = center_x - diam / 2 - self.box_border
+        self.b1.x = center_y - diam / 2 - self.box_border
+        self.b2.x = center_x + diam / 2 + self.box_border
+        self.b2.y = center_y - diam / 2 - self.box_border
+        self.b3.x = center_x + diam / 2 + self.box_border
+        self.b3.y = center_y + diam / 2 + self.box_border
+        self.b4.x = center_x - diam / 2 - self.box_border
+        self.b4.y = center_y + diam / 2 + self.box_border
+
+        # call unbound edge helper again
+        for unbound_edge, incident_site, co_site, border_vertex in self._unbound_edges_args:
+            self.finish_unbounded_edges_helper(unbound_edge, incident_site, co_site, replace=border_vertex)
+
+    def consistency_test(self):
+        self.tree.consistency_test()
+        for edge in self.dcel.edges:
+            if edge.origin is not None and edge.destination is not None:
+                assert not (math.isclose(edge.origin.x, edge.destination.x) and
+                            math.isclose(edge.origin.y, edge.destination.y))
 
 
 # plot the bounding boxes
@@ -678,33 +854,8 @@ class Event:
         return isinstance(self, SiteEvent)
 
 
-def insert_circle_event_if_exists(vanishing_arc_right_node, queue):
-    if vanishing_arc_right_node.left_nbr is not None:
-        vanishing_arc_left_break_point = vanishing_arc_right_node.left_nbr.payload
-        vanishing_arc_right_break_point = vanishing_arc_right_node.payload
-
-        b = vanishing_arc_left_break_point.left_higher_site
-        assert b is vanishing_arc_right_break_point.left_lower_site
-
-        a = vanishing_arc_left_break_point.left_lower_site
-        c = vanishing_arc_right_break_point.left_higher_site
-        if a is c:
-            return None
-        if not colinear(a, b, c):
-            clp_x, clp_y = circle_lowest_point(a, b, c)
-
-            if points_are_close((clp_x, clp_y), (b.x, b.y)):
-                raise NotImplementedError("The site is directly below a breakpoint")
-            else:
-                # if middle vanishes
-                if vanishing_arc_right_break_point.left_lower_site is vanishing_arc_left_break_point.left_higher_site:
-                    ce = CircleEvent(vanishing_arc_left_break_point, vanishing_arc_right_break_point, a, b, c, clp_x, clp_y)
-                    assert vanishing_arc_right_break_point.circle_event is None
-                    vanishing_arc_right_break_point.circle_event = ce
-                    queue.add(ce)
-                    return ce
-                elif math.isclose(clp_y, b.y):
-                    raise NotImplementedError("Tangent new site")
+def cross_product(vec1, vec2):
+    return vec1[0] * vec2[1] - vec1[1] * vec2[0]
 
 
 class CircleEvent(Event):
@@ -727,17 +878,3 @@ class SiteEvent(Event):
 
     def __str__(self):
         return "event" + str(self.site)
-
-
-def main():
-    sites = [(0, 1), (-1, 0), (1, 0)]
-    sites = [Site(x, y) for x, y in sites]
-    for site in sites:
-        print(site)
-
-    fortune = Fortune(sites)
-    fortune.run()
-
-
-if __name__ == '__main__':
-    main()

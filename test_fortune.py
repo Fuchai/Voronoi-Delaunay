@@ -4,7 +4,8 @@ from fortune import *
 
 class TestFortune(TestCase):
     def test_run(self):
-        points = [(0, 1), (-1, 0), (1, -0.3), (2, -2), (-2, -5)]
+        points = [(0, 1), (-1, 0), (1, -0.3), (2, -2), (-2, -5), (3,-3)]
+        # points = [(0, 1), (-1, 0), (1, -0.3), (2, -2), (-2, -5)]
         sites = []
         for i, point in enumerate(points):
             sites.append(Site(x=point[0], y=point[1], name="p" + str(i + 1)))

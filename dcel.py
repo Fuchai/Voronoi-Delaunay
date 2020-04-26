@@ -111,7 +111,7 @@ class Vertex:
             return str(self)
 
     def __str__(self):
-        return self.name
+        return f"{self.name}  ({self.x:.1f},  {self.y:.1f})"
 
 
 class Face:

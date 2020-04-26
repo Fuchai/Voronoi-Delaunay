@@ -117,7 +117,7 @@ class BreakPoint(Payload):
         # assert self.half_edge.twin.incident_face is self.arc.site_of_arc().cell_face
         self.half_edge = None
 
-    def get_coordinates(self, l):
+    def get_coordinates(self, ly):
         # get parabolas
         a = self.left_higher_site.x
         b = self.left_higher_site.y
@@ -126,15 +126,15 @@ class BreakPoint(Payload):
 
         # get intersection
         coef2 = d - b
-        coef1 = 2 * a * l - 2 * a * d - 2 * c * l + 2 * c * b
-        coef0 = a * a * d + b * b * d - l * l * d - a * a * l - b * b * l - \
-                c * c * b - d * d * b + l * l * b + c * c * l + d * d * l
+        coef1 = 2 * a * ly - 2 * a * d - 2 * c * ly + 2 * c * b
+        coef0 = a * a * d + b * b * d - ly * ly * d - a * a * ly - b * b * ly - \
+                c * c * b - d * d * b + ly * ly * b + c * c * ly + d * d * ly
 
         # What if coef2 is zero? That only happens if the first two sites are the same height
         # need to handle it in the overall algorithm.
 
         if coef2 != 0:
-            if math.isclose(self.left_lower_site.y, l) or math.isclose(self.left_higher_site.y, l):
+            if math.isclose(self.left_lower_site.y, ly) or math.isclose(self.left_higher_site.y, ly):
                 has_vertical = True
             else:
                 has_vertical = False
@@ -144,12 +144,12 @@ class BreakPoint(Payload):
                 if x2 < x1:
                     x1, x2 = x2, x1
 
-                y1 = self.left_higher_site.get_parabola_y(x1, l)
-                y11 = self.left_lower_site.get_parabola_y(x1, l)
+                y1 = self.left_higher_site.get_parabola_y(x1, ly)
+                y11 = self.left_lower_site.get_parabola_y(x1, ly)
                 assert math.isclose(y1, y11)
 
-                y2 = self.left_higher_site.get_parabola_y(x2, l)
-                y22 = self.left_lower_site.get_parabola_y(x2, l)
+                y2 = self.left_higher_site.get_parabola_y(x2, ly)
+                y22 = self.left_lower_site.get_parabola_y(x2, ly)
                 assert math.isclose(y2, y22)
 
                 # to pick intersection, judge which site is lower
@@ -160,10 +160,10 @@ class BreakPoint(Payload):
                     # the right solution has left higher site higher
                     return x2, y2
             else:
-                if math.isclose(self.left_lower_site.y, l):
-                    return self.left_lower_site.x, self.left_higher_site.get_parabola_y(self.left_lower_site.x, l)
-                elif math.isclose(self.left_higher_site.y, l):
-                    return self.left_higher_site.x, self.left_lower_site.get_parabola_y(self.left_lower_site.x, l)
+                if math.isclose(self.left_lower_site.y, ly):
+                    return self.left_lower_site.x, self.left_higher_site.get_parabola_y(self.left_lower_site.x, ly)
+                elif math.isclose(self.left_higher_site.y, ly):
+                    return self.left_higher_site.x, self.left_lower_site.get_parabola_y(self.left_lower_site.x, ly)
                 else:
                     raise ValueError("Investigate this")
         else:
@@ -173,8 +173,8 @@ class BreakPoint(Payload):
                 return (a+c)/2, float("inf")
             else:
                 x = -coef0 / coef1
-                y = self.left_higher_site.get_parabola_y(x, l)
-                yy = self.left_lower_site.get_parabola_y(x, l)
+                y = self.left_higher_site.get_parabola_y(x, ly)
+                yy = self.left_lower_site.get_parabola_y(x, ly)
                 assert math.isclose(y, yy)
                 return x, y
 
@@ -199,7 +199,8 @@ class BreakPoint(Payload):
         plt.show()
 
     def __str__(self):
-        return "bp: lh " + str(self.left_higher_site) + " ll " + str(self.left_lower_site)
+        return "bp: l " + str(self.left_lower_site) + " r " + str(self.left_higher_site)
+
 
     def arc_to_site(self):
         return self.left_lower_site
@@ -213,7 +214,7 @@ class BreakPoint(Payload):
 class BeachLineTree:
     def __init__(self, root=None, debug=False):
         self.root = root
-        self.l = None
+        self.y = None
         self.break_point_counts = 0
         self.debug = debug
 
@@ -473,7 +474,7 @@ class BeachLineTree:
             if right_nbr is not None:
                 right_nbr.left_nbr = new_node
             return new_node, new_node
-        elif payload.eval(self.l) < node.eval(self.l):
+        elif payload.eval(self.y) < node.eval(self.y):
             ch, new_node = self._insert(node.left_child, payload, left_nbr=left_nbr, right_nbr=node)
             node.left_child = ch
             ch.parent = node
@@ -497,22 +498,22 @@ class BeachLineTree:
         # Step 4 - If the node is unbalanced,
         # then try out the 4 cases
         # Case 1 - Left Left
-        if balance > 1 and payload.eval(self.l) < node.left_child.eval(self.l):
+        if balance > 1 and payload.eval(self.y) < node.left_child.eval(self.y):
             return self.right_rotate(node), new_node
 
             # Case 2 - Right Right
-        if balance < -1 and payload.eval(self.l) > node.right_child.eval(self.l):
+        if balance < -1 and payload.eval(self.y) > node.right_child.eval(self.y):
             return self.left_rotate(node), new_node
 
             # Case 3 - Left Right
-        if balance > 1 and payload.eval(self.l) > node.left_child.eval(self.l):
+        if balance > 1 and payload.eval(self.y) > node.left_child.eval(self.y):
             ch = self.left_rotate(node.left_child)
             node.left_child = ch
             ch.parent = node
             return self.right_rotate(node), new_node
 
             # Case 4 - Right Left
-        if balance < -1 and payload.eval(self.l) < node.right_child.eval(self.l):
+        if balance < -1 and payload.eval(self.y) < node.right_child.eval(self.y):
             ch = self.right_rotate(node.right_child)
             node.right_child = ch
             ch.parent = node
@@ -532,7 +533,7 @@ class BeachLineTree:
         def _find(node, _key):
             if not node:
                 return node
-            elif _key < node.eval(self.l):
+            elif _key < node.eval(self.y):
                 return _find(node.left_child, _key)
             else:
                 return _find(node.right_child, _key)
@@ -578,8 +579,8 @@ class BeachLineTree:
         if not current_node:
             raise ValueError("Node not found?")
         else:
-            tdne = to_delete_node.eval(self.l)
-            cne = current_node.eval(self.l)
+            tdne = to_delete_node.eval(self.y)
+            cne = current_node.eval(self.y)
             if current_node is to_delete_node or current_node.payload is to_delete_node:
                 # current node is to be deleted
                 # assert current_node is to_delete_node or current_node.payload is to_delete_node
@@ -788,25 +789,25 @@ class BeachLineTree:
 
                 if node.left_nbr is not None:
                     assert node.payload.left_lower_site is node.left_nbr.payload.left_higher_site
-                    node_x, node_y = node.payload.get_coordinates(self.l)
-                    left_nbr_x, left_nbr_y = node.left_nbr.payload.get_coordinates(self.l)
+                    node_x, node_y = node.payload.get_coordinates(self.y)
+                    left_nbr_x, left_nbr_y = node.left_nbr.payload.get_coordinates(self.y)
                     assert left_nbr_x < node_x or math.isclose(node_x, left_nbr_x)
 
                 if node.right_nbr is not None:
                     assert node.right_nbr.left_nbr is node
                     assert node.payload.left_higher_site is node.right_nbr.payload.left_lower_site
-                    node_x, node_y = node.payload.get_coordinates(self.l)
-                    right_nbr_x, right_nbr_y = node.right_nbr.payload.get_coordinates(self.l)
+                    node_x, node_y = node.payload.get_coordinates(self.y)
+                    right_nbr_x, right_nbr_y = node.right_nbr.payload.get_coordinates(self.y)
                     assert node_x < right_nbr_x or math.isclose(node_x, right_nbr_x)
 
                 try:
-                    ldelta = node.payload.left_higher_site.get_parabola_derivative(node_x, self.l)
-                    assert node.payload.left_higher_site.get_parabola_derivative(node_x, self.l) < \
-                           node.payload.left_lower_site.get_parabola_derivative(node_x, self.l)
+                    ldelta = node.payload.left_higher_site.get_parabola_derivative(node_x, self.y)
+                    assert node.payload.left_higher_site.get_parabola_derivative(node_x, self.y) < \
+                           node.payload.left_lower_site.get_parabola_derivative(node_x, self.y)
                 except ZeroDivisionError:
                     # then the newly inserted site is a vertical line
-                    assert math.isclose(node.payload.left_higher_site.y, self.l) or \
-                           math.isclose(node.payload.left_lower_site.y, self.l)
+                    assert math.isclose(node.payload.left_higher_site.y, self.y) or \
+                           math.isclose(node.payload.left_lower_site.y, self.y)
 
                 minimum = minimum.right_nbr
                 count += 1
@@ -820,17 +821,17 @@ class BeachLineTree:
             mmin = self.get_min_value_node(self.root)
             mmax = self.get_max_value_node(self.root)
 
-            x = np.linspace(mmin.eval(self.l) - 1, mmax.eval(self.l) + 1, 5000)
+            x = np.linspace(mmin.eval(self.y) - 1, mmax.eval(self.y) + 1, 5000)
             # plot all parabolas
             for site in self.sites():
-                if math.isclose(site.y, self.l):
+                if math.isclose(site.y, self.y):
                     plt.axvline(x=site.x)
                 else:
-                    y = site.get_parabola_y(x, self.l)
+                    y = site.get_parabola_y(x, self.y)
                     plt.plot(x, y)
 
             for node in self.pre_order(self.root):
-                x, y = node.payload.get_coordinates(self.l)
+                x, y = node.payload.get_coordinates(self.y)
                 plt.plot([x], [y], marker='o', markersize=3, color="red")
                 plt.annotate(f"{x:.1f},{y:.1f}", (x, y))
 
