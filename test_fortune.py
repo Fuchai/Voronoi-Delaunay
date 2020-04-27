@@ -10,10 +10,6 @@ class TestFortune(TestCase):
         for i, point in enumerate(points):
             sites.append(Site(x=point[0], y=point[1], name="p" + str(i + 1)))
         print()
-        print("Inserting sites")
-        for site in sites:
-            print(site)
-
         fortune = Fortune(sites)
         fortune.run()
 
@@ -23,27 +19,20 @@ class TestFortune(TestCase):
         for i, point in enumerate(points):
             sites.append(Site(x=point[0], y=point[1], name="p" + str(i + 1)))
         print()
-        print("Inserting sites")
-        for site in sites:
-            print(site)
 
         fortune = Fortune(sites)
         fortune.run()
-        print("done")
 
     def test_colinear_vertical(self):
         points = [(0, 1), (0, 2), (0, 3), (0, 4), (0, 5)]
         sites = []
         for i, point in enumerate(points):
             sites.append(Site(x=point[0], y=point[1], name="p" + str(i + 1)))
+
         print()
-        print("Inserting sites")
-        for site in sites:
-            print(site)
 
         fortune = Fortune(sites)
         fortune.run()
-        print("done")
 
     def test_colinear(self):
         points = [(2, 1), (4, 2), (6, 3), (8, 4), (10, 5)]
@@ -51,13 +40,9 @@ class TestFortune(TestCase):
         for i, point in enumerate(points):
             sites.append(Site(x=point[0], y=point[1], name="p" + str(i + 1)))
         print()
-        print("Inserting sites")
-        for site in sites:
-            print(site)
 
         fortune = Fortune(sites)
         fortune.run()
-        print("done")
 
     def test_multiple_site_events(self):
         points = [(0, 1), (-1, 0), (1, -0.3), (2, -2), (0, -3), (2, -3), (-2, -5)]
@@ -65,9 +50,6 @@ class TestFortune(TestCase):
         for i, point in enumerate(points):
             sites.append(Site(x=point[0], y=point[1], name="p" + str(i + 1)))
         print()
-        print("Inserting sites")
-        for site in sites:
-            print(site)
 
         fortune = Fortune(sites)
         fortune.run()
