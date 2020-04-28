@@ -1,3 +1,8 @@
+### Dependencies
+python 3.6 and above for Path library
+Python ```numpy```, ```pylab```, ```matplotlib```
+
+
 ### Entry Point
 
 Your entry point is ```main.py```. 
