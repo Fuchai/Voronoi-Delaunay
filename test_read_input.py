@@ -8,8 +8,8 @@ class TestRead_input(TestCase):
     def test_read_input(self):
         sites = read_input()
         new_sites = []
-        for i, xy in enumerate(sites):
-            x, y = xy
+        for i, site in enumerate(sites):
+            x, y = site.x, site.y
             new_sites.append(Site(x, y, name="p" + str(i + 1)))
 
         print(new_sites)
