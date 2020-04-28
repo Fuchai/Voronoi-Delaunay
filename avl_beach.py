@@ -1,7 +1,8 @@
 # Python code to delete a node in AVL tree
 # Generic tree node class
-import math
 import abc
+import math
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -134,7 +135,8 @@ class BreakPoint(Payload):
         # need to handle it in the overall algorithm.
 
         if coef2 != 0:
-            if math.isclose(self.left_lower_site.y, ly, abs_tol=1e-5) or math.isclose(self.left_higher_site.y, ly, abs_tol=1e-5):
+            if math.isclose(self.left_lower_site.y, ly, abs_tol=1e-5) or math.isclose(self.left_higher_site.y, ly,
+                                                                                      abs_tol=1e-5):
                 has_vertical = True
             else:
                 has_vertical = False
@@ -168,8 +170,8 @@ class BreakPoint(Payload):
                     raise ValueError("Investigate this")
         else:
             if coef1 == 0:
-                assert b==0 and d==0
-                return (a+c)/2, float("inf")
+                assert b == 0 and d == 0
+                return (a + c) / 2, float("inf")
             else:
                 x = -coef0 / coef1
                 y = self.left_higher_site.get_parabola_y(x, ly)
@@ -199,7 +201,6 @@ class BreakPoint(Payload):
 
     def __str__(self):
         return "bp: l " + str(self.left_lower_site) + " r " + str(self.left_higher_site)
-
 
     def arc_to_site(self):
         return self.left_lower_site
@@ -380,22 +381,20 @@ class BeachLineTree:
     #         self.consistency_test()
     #     return left_new_node, right_new_node
 
-
     def insert_horizontal_colinear(self, sites):
         assert self.root is None
         bps = []
-        if len(sites)!=1:
-            for i in range(len(sites)-1):
-                left_site=sites[i]
-                right_site=sites[i+1]
-                bp=BreakPoint(right_site, left_site)
-                self.root, new_node=self._insert(self.root,bp)
-                self.break_point_counts+=1
+        if len(sites) != 1:
+            for i in range(len(sites) - 1):
+                left_site = sites[i]
+                right_site = sites[i + 1]
+                bp = BreakPoint(right_site, left_site)
+                self.root, new_node = self._insert(self.root, bp)
+                self.break_point_counts += 1
                 bps.append(bp)
         else:
-            self.root=sites[0]
+            self.root = sites[0]
         return bps
-
 
     def insert(self, site):
         """
@@ -814,7 +813,7 @@ class BeachLineTree:
             assert count == len(self)
 
     def plot(self):
-        if len(self)==0:
+        if len(self) == 0:
             pass
         else:
             mmin = self.get_min_value_node(self.root)

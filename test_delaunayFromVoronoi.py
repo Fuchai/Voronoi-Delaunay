@@ -1,10 +1,12 @@
 from unittest import TestCase
-from fortune import *
+
 from delau import *
+from fortune import *
+
 
 class TestDelaunayFromVoronoi(TestCase):
     def test_convert(self):
-        points = [(0, 1), (-1, 0), (1, -0.3), (2, -2), (-2, -5), (3,-3)]
+        points = [(0, 1), (-1, 0), (1, -0.3), (2, -2), (-2, -5), (3, -3)]
         # points = [(0, 1), (-1, 0), (1, -0.3), (2, -2), (-2, -5)]
         sites = []
         for i, point in enumerate(points):
@@ -13,7 +15,7 @@ class TestDelaunayFromVoronoi(TestCase):
         fortune = Fortune(sites)
         fortune.run(plot=False)
 
-        dfv=DelaunayFromVoronoi()
+        dfv = DelaunayFromVoronoi()
         dfv.convert(fortune.dcel, fortune.sites)
         dfv.plot()
 
@@ -27,7 +29,7 @@ class TestDelaunayFromVoronoi(TestCase):
         fortune = Fortune(sites)
         fortune.run(plot=False)
 
-        dfv=DelaunayFromVoronoi()
+        dfv = DelaunayFromVoronoi()
         dfv.convert(fortune.dcel, fortune.sites)
         dfv.plot()
 
@@ -41,7 +43,7 @@ class TestDelaunayFromVoronoi(TestCase):
 
         fortune = Fortune(sites)
         fortune.run(plot=False)
-        dfv=DelaunayFromVoronoi()
+        dfv = DelaunayFromVoronoi()
         dfv.convert(fortune.dcel, fortune.sites)
         dfv.plot()
 
@@ -54,7 +56,7 @@ class TestDelaunayFromVoronoi(TestCase):
 
         fortune = Fortune(sites)
         fortune.run(plot=False)
-        dfv=DelaunayFromVoronoi()
+        dfv = DelaunayFromVoronoi()
         dfv.convert(fortune.dcel, fortune.sites)
         dfv.plot()
 
@@ -67,7 +69,7 @@ class TestDelaunayFromVoronoi(TestCase):
 
         fortune = Fortune(sites)
         fortune.run(plot=False)
-        dfv=DelaunayFromVoronoi()
+        dfv = DelaunayFromVoronoi()
         dfv.convert(fortune.dcel, fortune.sites)
         dfv.plot()
 
@@ -80,12 +82,12 @@ class TestDelaunayFromVoronoi(TestCase):
 
         fortune = Fortune(sites)
         fortune.run(plot=False)
-        dfv=DelaunayFromVoronoi()
+        dfv = DelaunayFromVoronoi()
         dfv.convert(fortune.dcel, fortune.sites)
         dfv.plot()
 
     def test_multiple_mix(self):
-        points = [(-3, 0), (-2, 1), (-1, 0), (1, 0), (2, 1), (3, 0), (-2,-1), (2,-1)]
+        points = [(-3, 0), (-2, 1), (-1, 0), (1, 0), (2, 1), (3, 0), (-2, -1), (2, -1)]
         sites = []
         for i, point in enumerate(points):
             sites.append(Site(x=point[0], y=point[1], name="p" + str(i + 1)))
@@ -93,12 +95,12 @@ class TestDelaunayFromVoronoi(TestCase):
 
         fortune = Fortune(sites)
         fortune.run(plot=False)
-        dfv=DelaunayFromVoronoi()
+        dfv = DelaunayFromVoronoi()
         dfv.convert(fortune.dcel, fortune.sites)
         dfv.plot()
 
     def test_site_right_underneath(self):
-        points = [(-2, 0), (2, 0), (0, -1), (0,-2)]
+        points = [(-2, 0), (2, 0), (0, -1), (0, -2)]
         sites = []
         for i, point in enumerate(points):
             sites.append(Site(x=point[0], y=point[1], name="p" + str(i + 1)))
@@ -106,12 +108,12 @@ class TestDelaunayFromVoronoi(TestCase):
 
         fortune = Fortune(sites)
         fortune.run(plot=False)
-        dfv=DelaunayFromVoronoi()
+        dfv = DelaunayFromVoronoi()
         dfv.convert(fortune.dcel, fortune.sites)
         dfv.plot()
 
     def test_site_right_underneath_2(self):
-        points = [(-3, 0), (-2, 1), (-1, 0), (1, 0), (2, 1), (3, 0), (0,0), (2,0.5), (-2,0.5)]
+        points = [(-3, 0), (-2, 1), (-1, 0), (1, 0), (2, 1), (3, 0), (0, 0), (2, 0.5), (-2, 0.5)]
         sites = []
         for i, point in enumerate(points):
             sites.append(Site(x=point[0], y=point[1], name="p" + str(i + 1)))
@@ -119,7 +121,7 @@ class TestDelaunayFromVoronoi(TestCase):
 
         fortune = Fortune(sites)
         fortune.run(plot=False)
-        dfv=DelaunayFromVoronoi()
+        dfv = DelaunayFromVoronoi()
         dfv.convert(fortune.dcel, fortune.sites)
         dfv.plot()
 
@@ -132,6 +134,6 @@ class TestDelaunayFromVoronoi(TestCase):
 
         fortune = Fortune(sites)
         fortune.run(plot=False)
-        dfv=DelaunayFromVoronoi()
+        dfv = DelaunayFromVoronoi()
         dfv.convert(fortune.dcel, fortune.sites)
         dfv.plot()

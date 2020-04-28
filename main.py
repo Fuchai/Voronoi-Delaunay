@@ -1,12 +1,13 @@
-from input_output import *
-from fortune import *
-from delau import *
-from pathlib import Path
 import shutil
+from pathlib import Path
+
+from delau import *
+from fortune import *
+from input_output import *
+
 
 def main(overwrite=True):
-
-    ani=Path("animation")
+    ani = Path("animation")
     if ani.exists():
         if overwrite:
             shutil.rmtree(ani)
@@ -14,13 +15,14 @@ def main(overwrite=True):
             raise FileExistsError("The animation directory exists")
     ani.mkdir()
     file = "sites.txt"
-    sites=read_input(file)
-    fortune=Fortune(sites)
+    sites = read_input(file)
+    fortune = Fortune(sites)
     fortune.run()
 
     dfv = DelaunayFromVoronoi()
     dfv.convert(fortune.dcel, fortune.sites)
     dfv.plot()
+
 
 if __name__ == '__main__':
     main(overwrite=True)

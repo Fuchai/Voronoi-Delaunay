@@ -1,4 +1,5 @@
 from unittest import TestCase
+
 from avl_beach import *
 
 
@@ -21,7 +22,7 @@ class TestBeachLineTree(TestCase):
         tree.y = 0
         tree.insert(Site(-1, 0))
         arc_right_node, bb = tree.insert(Site(1, 0))
-        arc_left_node=arc_right_node.left_nbr
+        arc_left_node = arc_right_node.left_nbr
         tree.plot()
         tree.y = -0.5
         assert (arc_right_node.eval(tree.y) < bb.eval(tree.y))

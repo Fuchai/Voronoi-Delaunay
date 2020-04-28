@@ -1,5 +1,7 @@
 from unittest import TestCase
+
 from dcel import *
+
 
 class TestDCEL(TestCase):
     def test_naive_polygon(self):

@@ -1,10 +1,11 @@
-from dcel import *
-from input_output import *
-from avl_beach import *
 import bisect
-from matplotlib import collections as mc
-import pylab as pl
 from pathlib import Path
+
+import pylab as pl
+from matplotlib import collections as mc
+
+from avl_beach import *
+from dcel import *
 
 
 class Fortune:

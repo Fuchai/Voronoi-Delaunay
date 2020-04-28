@@ -1,8 +1,11 @@
-from dcel import *
-import pylab as pl
-import matplotlib.pyplot as plt
-from matplotlib import collections  as mc
 from pathlib import Path
+
+import matplotlib.pyplot as plt
+import pylab as pl
+from matplotlib import collections  as mc
+
+from dcel import *
+
 
 class DelaunayFromVoronoi:
     def __init__(self):
@@ -27,8 +30,8 @@ class DelaunayFromVoronoi:
                 self.triangles += 1
                 voro_cells_around = voro_vertex.counter_clockwise_around()
                 assert (len(voro_cells_around) == 3), "Is it not a triangulation? Why are there more than three edges?"
-                x_avg=0
-                y_avg=0
+                x_avg = 0
+                y_avg = 0
                 # create the edges and twin edges of this triangle
                 for i in range(len(voro_cells_around)):
                     from_v_name = "p" + voro_cells_around[i - 1].name[1:]
@@ -36,8 +39,8 @@ class DelaunayFromVoronoi:
                     edge_name = from_v_name + "," + to_v_name
                     from_v = delau_vertices[from_v_name]
                     to_v = delau_vertices[to_v_name]
-                    x_avg+=to_v.x
-                    y_avg+=to_v.y
+                    x_avg += to_v.x
+                    y_avg += to_v.y
                     if edge_name not in delau_edges:
                         edge = HalfEdge(self.dcel, from_v, incident_face=delau_cell)
                         if from_v.incident_edge is None:
@@ -60,9 +63,9 @@ class DelaunayFromVoronoi:
                     edge.twin = twin
                     twin.twin = edge
 
-                x_avg/=len(voro_cells_around)
-                y_avg/=len(voro_cells_around)
-                self.t_centers.append(("t" + str(self.triangles-1), x_avg, y_avg))
+                x_avg /= len(voro_cells_around)
+                y_avg /= len(voro_cells_around)
+                self.t_centers.append(("t" + str(self.triangles - 1), x_avg, y_avg))
 
                 # wire prev and next
                 for i in range(len(voro_cells_around)):
@@ -150,4 +153,4 @@ class DelaunayFromVoronoi:
         fig.set_size_inches(8, 8)
         # ax.set(xlim=(self.b1.x - 1, self.b3.x + 1), ylim=(self.b1.y - 1, self.b3.y + 1))
 
-        fig.savefig(Path("animation")/"delau.png")
+        fig.savefig(Path("animation") / "delau.png")

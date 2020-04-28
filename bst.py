@@ -12,7 +12,7 @@ class BreakPointNode:
         # intersection between two parabolas
         left_parabola = self.get_left_parabola()
         right_parabola = self.get_right_parabola()
-        x,y=left_parabola.intersect(right_parabola, ly)
+        x, y = left_parabola.intersect(right_parabola, ly)
         return x
 
     def get_left_parabola(self):
@@ -109,19 +109,19 @@ class BeachLineTree:
         return self.size
 
     def put(self, parabola, ly):
-        if len(self)==0:
-            self.root=parabola
-        elif len(self)==1:
-            big_parabola=self.root
+        if len(self) == 0:
+            self.root = parabola
+        elif len(self) == 1:
+            big_parabola = self.root
             self.root = BreakPointNode((big_parabola, parabola))
             right = BreakPointNode((parabola, big_parabola), parent=self.root)
-            self.root.right_child=right
+            self.root.right_child = right
         else:
             self._put(parabola, self.root, ly)
         self.size = self.size + 1
 
     def _put(self, parabola, current_node, ly):
-        x=parabola.site.x
+        x = parabola.site.x
         if key < current_node.key:
             if current_node.has_left_child():
                 self._put(key, val, current_node.left_child)

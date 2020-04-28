@@ -1,6 +1,7 @@
 from unittest import TestCase
-from input_output import read_input
+
 from avl_beach import Site
+from input_output import read_input
 
 
 class TestRead_input(TestCase):

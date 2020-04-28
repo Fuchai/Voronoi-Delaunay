@@ -1,6 +1,3 @@
-from adapters import *
-
-
 class DCEL:
     def __init__(self, demo=False):
         self.vertices = []
@@ -109,16 +106,16 @@ class Vertex:
         assert (None not in [self.x, self.y, self.incident_edge])
 
     def counter_clockwise_around(self):
-        faces=[]
-        first_face=self.incident_edge.incident_face
+        faces = []
+        first_face = self.incident_edge.incident_face
         faces.append(first_face)
 
-        next_edge=self.incident_edge.prev_edge.twin
-        next_face=next_edge.incident_face
+        next_edge = self.incident_edge.prev_edge.twin
+        next_face = next_edge.incident_face
         while next_face is not first_face:
             faces.append(next_face)
-            next_edge=next_edge.prev_edge.twin
-            next_face=next_edge.incident_face
+            next_edge = next_edge.prev_edge.twin
+            next_face = next_edge.incident_face
         return faces
 
     def __repr__(self):

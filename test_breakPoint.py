@@ -1,4 +1,5 @@
 from unittest import TestCase
+
 from avl_beach import *
 
 
@@ -25,8 +26,7 @@ class TestBreakPoint(TestCase):
         print(site2.string_parabola(-1))
 
         bp = BreakPoint(site1, site2)
-        x, y =bp.get_coordinates(-1)
+        x, y = bp.get_coordinates(-1)
 
         self.assertAlmostEqual(x, 0)
-        self.assertAlmostEqual(y, 1/4)
-
+        self.assertAlmostEqual(y, 1 / 4)
