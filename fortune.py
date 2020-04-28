@@ -9,7 +9,7 @@ from dcel import *
 
 
 class Fortune:
-    def __init__(self, sites):
+    def __init__(self, sites, dump=False):
         self.dcel = None
         self.tree = None
         self.queue = None
@@ -30,6 +30,8 @@ class Fortune:
         self.uf = None
 
         self.fig_count = 1
+
+        self.dump = dump
 
     def run(self, plot=True):
         ## init all
@@ -111,10 +113,15 @@ class Fortune:
         self.label_bounding_box()
 
         self.plot(final=True, arrow=False)
-        dcel = repr(self.dcel)
+        output = repr(self.dcel)
         print("****** Voronoi diagram ******")
-        print(dcel)
-        return dcel
+        print(output)
+        if self.dump:
+            with open('voronoi.txt', "a+") as f:
+                f.write("****** Voronoi diagram ******\n\n")
+                f.write(output)
+                f.write("\n")
+        return output
 
     def insert_horizontal_colinear(self):
         sites = sorted(self._horizontal_co_linear, key=lambda site: site.x)
@@ -158,7 +165,6 @@ class Fortune:
             site = sites[0]
             site.cell = Face(self.dcel, name="c" + site.name[1:])
             self.cell_site[site.cell] = site
-            # TODO check this
         self._horizontal_co_linear = None
 
     def handle_site_event(self, site_event):
@@ -462,11 +468,15 @@ class Fortune:
         fig.set_size_inches(8, 8)
         # ax.set(xlim=(self.b1.x - 1, self.b3.x + 1), ylim=(self.b1.y - 1, self.b3.y + 1))
 
-        if not final:
-            fig.savefig(Path("animation") / (str(self.fig_count) + ".png"))
-            self.fig_count += 1
+        if self.dump:
+            if not final:
+                fig.savefig(Path("animation") / (str(self.fig_count) + ".png"))
+                self.fig_count += 1
+            else:
+                fig.savefig(Path("animation") / "voronoi.png")
+            plt.close(fig)
         else:
-            fig.savefig(Path("animation") / "voronoi.png")
+            fig.show()
 
     def finish_unbounded_edges_helper(self, unbound_edge, incident_site, co_site):
 

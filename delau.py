@@ -8,12 +8,13 @@ from dcel import *
 
 
 class DelaunayFromVoronoi:
-    def __init__(self):
+    def __init__(self, dump=False):
         self.dcel = DCEL()
         self.uf = Face(self.dcel)
         self.uf.name = "uf"
         self.triangles = 1
         self.t_centers = []
+        self.dump = dump
 
     def convert(self, voro_dcel, sites):
         delau_vertices = {}
@@ -118,8 +119,13 @@ class DelaunayFromVoronoi:
             from_edge.next_edge = to_edge
             from_edge.incident_face = self.uf
 
+        output = repr(self.dcel)
         print("****** Delaunay triangulation ******")
-        print(repr(self.dcel))
+        print(output)
+        if self.dump:
+            with open('voronoi.txt', "a") as f:
+                f.write("****** Delaunay triangulation ******\n\n")
+                f.write(output)
 
     def plot(self):
         def vertex_to_color(vertex):
@@ -153,4 +159,8 @@ class DelaunayFromVoronoi:
         fig.set_size_inches(8, 8)
         # ax.set(xlim=(self.b1.x - 1, self.b3.x + 1), ylim=(self.b1.y - 1, self.b3.y + 1))
 
-        fig.savefig(Path("animation") / "delau.png")
+        if self.dump:
+            fig.savefig(Path("animation") / "delau.png")
+            plt.close(fig)
+        else:
+            fig.show()
