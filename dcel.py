@@ -12,7 +12,7 @@ class DCEL:
             face = Face(self)
             face.name = "f" + repr(len(self.faces) + 1)
 
-    def naive_polygon(self, vertices, out_face, name=None, face=True):
+    def naive_polygon(self, vertices, out_face, name=None, make_in_face=True):
         """
         Insert a polygon by a list of vertices
         This function is for testing only.
@@ -25,7 +25,7 @@ class DCEL:
         for vertex in vertices:
             assert (isinstance(vertex, Vertex))
 
-        if face:
+        if make_in_face:
             in_face = Face(self)
             if name is None:
                 in_face.name = "f" + repr(len(self.faces) + 1)
@@ -47,7 +47,7 @@ class DCEL:
 
             in_edge = HalfEdge(self, from_vertex)
             out_edge = HalfEdge(self, to_vertex)
-            if face:
+            if make_in_face:
                 in_edge.name = "e" + str(edge_num) + ",1"
                 out_edge.name = "e" + str(edge_num) + ",2"
             edge_num += 1
@@ -55,7 +55,7 @@ class DCEL:
             in_edge.twin = out_edge
             out_edge.twin = in_edge
 
-            if face:
+            if make_in_face:
                 in_edge.incident_face = in_face
             out_edge.incident_face = out_face
 
@@ -76,7 +76,7 @@ class DCEL:
         else:
             out_face.inner = [out_edges[0]]
 
-        if face:
+        if make_in_face:
             # connect all
             in_face.outer = in_edges[0]
 
@@ -108,9 +108,22 @@ class Vertex:
     def assert_complete(self):
         assert (None not in [self.x, self.y, self.incident_edge])
 
+    def counter_clockwise_around(self):
+        faces=[]
+        first_face=self.incident_edge.incident_face
+        faces.append(first_face)
+
+        next_edge=self.incident_edge.prev_edge.twin
+        next_face=next_edge.incident_face
+        while next_face is not first_face:
+            faces.append(next_face)
+            next_edge=next_edge.prev_edge.twin
+            next_face=next_edge.incident_face
+        return faces
+
     def __repr__(self):
         try:
-            return f"{self.name}  ({self.x:8.3f},  {self.y:8.3f})  {self.incident_edge.name}"
+            return f"{self.name}  ({self.x:.3f},  {self.y:.3f})  {self.incident_edge.name}"
         except AttributeError:
             raise
             return str(self)
@@ -134,7 +147,7 @@ class Face:
     def __repr__(self):
         try:
             n = "nil"
-            s = f"{self.name:6}  {self.outer.name if self.outer is not None else n}"
+            s = f"{self.name:3}  {self.outer.name if self.outer is not None else n:5}"
             if self.inner is not None:
                 for i in self.inner:
                     s += "  " + i.name
@@ -170,7 +183,7 @@ class HalfEdge:
             if name[0] == "b":
                 return name
             else:
-                assert name[0] == "v"
+                assert name[0] in ("v", "p")
                 return name[1:]
 
         if self._name:
@@ -183,7 +196,7 @@ class HalfEdge:
             if self.destination is not None:
                 to_name = processer(self.destination.name)
 
-            return from_name + "," + to_name
+            return f"{from_name},{to_name}"
 
     @name.setter
     def name(self, name):
@@ -199,7 +212,7 @@ class HalfEdge:
 
     def __repr__(self):
         try:
-            return f"{self.name:7}  {self.origin.name:3}  {self.twin.name:7}  {self.incident_face.name:3}  {self.next_edge.name:7}  {self.prev_edge.name:7}"
+            return f"{self.name}  {self.origin.name}  {self.twin.name}  {self.incident_face.name}  {self.next_edge.name}  {self.prev_edge.name}"
         except AttributeError:
             print(self.name + " has AttributeError")
             return str(self)

@@ -1,8 +1,9 @@
 from pathlib import Path
+from avl_beach import *
 
 def read_input(file="sites.txt"):
     f_path = Path(file)
-    sites=[]
+    points=[]
     with f_path.open("r") as f:
         for line in f:
             if line[-1]=='\n':
@@ -20,5 +21,8 @@ def read_input(file="sites.txt"):
                 y=yy[:-1]
                 x=float(x)
                 y=float(y)
-                sites.append((x,y))
+                points.append((x,y))
+    sites = []
+    for i, point in enumerate(points):
+        sites.append(Site(x=point[0], y=point[1], name="p" + str(i + 1)))
     return sites

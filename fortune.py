@@ -2,8 +2,9 @@ from dcel import *
 from input_output import *
 from avl_beach import *
 import bisect
-from matplotlib import collections  as mc
+from matplotlib import collections as mc
 import pylab as pl
+from pathlib import Path
 
 
 class Fortune:
@@ -27,7 +28,9 @@ class Fortune:
         self.border_vertices_queue = None
         self.uf = None
 
-    def run(self):
+        self.fig_count = 1
+
+    def run(self, plot=True):
         ## init all
         # dcel
         self.dcel = DCEL()
@@ -64,7 +67,7 @@ class Fortune:
         self.b4 = Vertex(self.dcel, center_x - self.diam / 2 - self.box_border,
                          center_y + self.diam / 2 + self.box_border, None,
                          "b4")
-        self.dcel.naive_polygon([self.b1, self.b2, self.b3, self.b4], self.uf, "bounding box", face=False)
+        self.dcel.naive_polygon([self.b1, self.b2, self.b3, self.b4], self.uf, "bounding box", make_in_face=False)
 
         # we use event queue to store the points on the box so that we achieve O(log n) performance
         self.border_vertices_queue = {"top": EventQueue(),
@@ -87,14 +90,16 @@ class Fortune:
             self.tree.y = event.y
             if self.debug:
                 self.consistency_test()
-            self.plot(event)
+            if plot:
+                self.plot(event)
             if event.is_site_event():
                 self.handle_site_event(event)
             else:
                 self.handle_circle_event(event)
             if self.debug:
                 self.consistency_test()
-            self.plot(event)
+            if plot:
+                self.plot(event)
 
         # get unbounded edges again
         # insert bounding box vertices
@@ -105,7 +110,10 @@ class Fortune:
         self.label_bounding_box()
 
         self.plot(final=True, arrow=False)
-        print(repr(self.dcel))
+        dcel = repr(self.dcel)
+        print("****** Voronoi diagram ******")
+        print(dcel)
+        return dcel
 
     def insert_horizontal_colinear(self):
         sites = sorted(self._horizontal_co_linear, key=lambda site: site.x)
@@ -131,7 +139,7 @@ class Fortune:
                 to_edge.incident_face = right_site
                 from_edge.incident_face = left_site
                 left_site.cell.outer = from_edge
-                right_site.cell.outer = to_edge
+                # right_site.cell.outer = to_edge
                 bp.half_edge = to_edge
 
                 # origin = Vertex(self.dcel, x=(left_site.x + right_site.x) / 2, y=self.b3.y, incident_edge=to_edge,
@@ -177,14 +185,15 @@ class Fortune:
                     self.queue.remove(old_arc.circle_event)
                     old_arc.circle_event = None
 
-            # # check if directly under an arc
-            # if left_new_node.left_higher_site is right_new_node.left_lower_site:
-            #     directly_under_an_arc=True
-            # else:
-            #     directly_under_an_arc=False
+            # check if directly under an arc
+            directly_under_an_arc = False
+
+            if left_new_node.left_nbr is not None:
+                if math.isclose(left_new_node.left_nbr.payload.eval(self.tree.y), new_site.x, abs_tol=1e-5):
+                    directly_under_an_arc = True
 
             # insert new circle event for triplets (a, b, new) and (new, b, a)
-            self.insert_circle_event_if_exists(left_new_node, self.queue)
+            self.insert_circle_event_if_exists(left_new_node, self.queue, directly_under_an_arc=directly_under_an_arc)
 
             b_node = right_new_node.right_nbr
             if b_node is not None:  # and not directly_under_an_arc:
@@ -209,7 +218,6 @@ class Fortune:
             new_site.cell.outer = new_site_edge
             if old_site.cell.outer is None:
                 old_site.cell.outer = old_site_edge
-            self.uf.inner.append(old_site_edge)
 
         else:
             # the first site
@@ -237,8 +245,9 @@ class Fortune:
 
         # check if the new triplets incur new circle events
         self.insert_circle_event_if_exists(aln, self.queue)
-        if aln.right_nbr is not None:
-            self.insert_circle_event_if_exists(aln.right_nbr, self.queue)
+        if not circle_event.directly_under_an_arc:
+            if aln.right_nbr is not None:
+                self.insert_circle_event_if_exists(aln.right_nbr, self.queue)
 
         # DCEL manipulation
         center, _ = circle_center_radius(circle_event.a, circle_event.b, circle_event.c)
@@ -299,7 +308,7 @@ class Fortune:
         if right_edge_to.origin is None:
             self.finish_unbounded_edges_helper(right_edge_to.twin, old_site, left_arc.left_higher_site)
 
-    def insert_circle_event_if_exists(self, vanishing_arc_right_node, queue):
+    def insert_circle_event_if_exists(self, vanishing_arc_right_node, queue, directly_under_an_arc=False):
         if vanishing_arc_right_node.left_nbr is not None:
             vanishing_arc_left_break_point = vanishing_arc_right_node.left_nbr.payload
             vanishing_arc_right_break_point = vanishing_arc_right_node.payload
@@ -314,24 +323,43 @@ class Fortune:
             if not colinear(a, b, c):
                 clp_x, clp_y = circle_lowest_point(a, b, c)
                 center, radius = circle_center_radius(a, b, c)
-                # check if the breakpoints converge: head
+                # check if the breakpoints converge
                 converge = True
-                for left, right in ((a, b), (b, c)):
-                    vector_ab = (right.x - left.x, right.y - left.y)
-                    mid = ((left.x + right.x) / 2, (right.y + left.y) / 2)
-                    vector_cc = (center[0] - mid[0], center[1] - mid[1])
-                    cp = cross_product(vector_ab, vector_cc)
-                    if cp > 0:
-                        converge = False
+                # the vector from break point to circle center needs to be in the same direction as
+                # the right perpendicular vector of left-right vector
+                left_bp_coors = vanishing_arc_left_break_point.get_coordinates(self.tree.y)
+                right_bp_coors = vanishing_arc_right_break_point.get_coordinates(self.tree.y)
+                if points_are_close(right_bp_coors, (0, 0.5)):
+                    print("Stop here")
+                    right_bp_coors = vanishing_arc_right_break_point.get_coordinates(self.tree.y)
 
-                if converge and clp_y < self.tree.y:
+                if points_are_close(left_bp_coors, right_bp_coors):
+                    ce = CircleEvent(vanishing_arc_left_break_point, vanishing_arc_right_break_point, a, b, c,
+                                     clp_x, clp_y, directly_under_an_arc=directly_under_an_arc)
+                    queue.add(ce)
+                    return ce
+
+                for left_site, right_site, bp_coors in ((a, b, left_bp_coors), (b, c, right_bp_coors)):
+                    left_right_vec = (right_site.x - left_site.x, right_site.y - left_site.y)
+                    left_right_right_perpen = (left_right_vec[1], -left_right_vec[0])
+                    bp_to_center = (center[0] - bp_coors[0], center[1] - bp_coors[1])
+                    try:
+                        cosine = (left_right_right_perpen[0] * bp_to_center[0] + left_right_right_perpen[1] *
+                                  bp_to_center[1]) / vec_length(left_right_right_perpen) / vec_length(bp_to_center)
+                        if cosine < 0:
+                            converge = False
+                    except ZeroDivisionError:
+                        pass
+
+                if converge and clp_y <= self.tree.y:
+                    # if clp_y < self.tree.y:
                     if points_are_close((clp_x, clp_y), (b.x, b.y)):
                         raise NotImplementedError("The site is directly below a breakpoint")
                     else:
                         # if middle vanishes
                         if vanishing_arc_right_break_point.left_lower_site is vanishing_arc_left_break_point.left_higher_site:
                             ce = CircleEvent(vanishing_arc_left_break_point, vanishing_arc_right_break_point, a, b, c,
-                                             clp_x, clp_y)
+                                             clp_x, clp_y, directly_under_an_arc=directly_under_an_arc)
                             assert vanishing_arc_right_break_point.circle_event is None
                             vanishing_arc_right_break_point.circle_event = ce
                             queue.add(ce)
@@ -373,6 +401,7 @@ class Fortune:
         for cell, site in self.cell_site.items():
             ax.plot([site.x], [site.y], marker='o', markersize=3, color=site_to_color(site))
             ax.annotate(s=str(site), xy=(site.x, site.y), xytext=(-4, -10), textcoords='offset points')
+            ax.annotate(s="c" + site.name[1:], xy=(site.x, site.y), xytext=(-4, -20), textcoords='offset points')
 
         if not final:
             if len(self.tree) != 0:
@@ -389,11 +418,12 @@ class Fortune:
                     ax.annotate(s=bp.left_lower_site.name + " " + bp.left_higher_site.name, xy=(right_x, right_y),
                                 xytext=(-3, -3), textcoords='offset points')
                     if left_x is None:
-                        left_x = right_x - 1
+                        left_x = right_x - 2
                     x = np.linspace(left_x, right_x, 5000)
                     left_x = right_x
                     if math.isclose(site.y, self.tree.y):
-                        ax.axvline(x=site.x)
+                        # ax.axvline(x=site.x)
+                        lines.append([(site.x, site.y), (site.x, right_y)])
                     else:
                         color = site_to_color(site)
                         y = site.get_parabola_y(x, self.tree.y)
@@ -408,7 +438,7 @@ class Fortune:
 
                 # plot the last site
                 site = last_node.payload.left_higher_site
-                x = np.linspace(left_x, right_x + 1, 5000)
+                x = np.linspace(left_x, right_x + 2, 5000)
                 if math.isclose(site.y, self.tree.y):
                     ax.axvline(x=site.x)
                 else:
@@ -420,6 +450,9 @@ class Fortune:
             if event:
                 ax.plot([event.x], [event.y], marker='X', markersize=3,
                         color="red" if not isinstance(event, SiteEvent) else site_to_color(event.site))
+                if isinstance(event, SiteEvent):
+                    ax.annotate(s=str(event.site), xy=(event.site.x, event.site.y), xytext=(-4, -10),
+                                textcoords='offset points')
 
         lc = mc.LineCollection(lines)
         ax.add_collection(lc)
@@ -428,7 +461,11 @@ class Fortune:
         fig.set_size_inches(8, 8)
         # ax.set(xlim=(self.b1.x - 1, self.b3.x + 1), ylim=(self.b1.y - 1, self.b3.y + 1))
 
-        fig.show()
+        if not final:
+            fig.savefig(Path("animation") / (str(self.fig_count) + ".png"))
+            self.fig_count += 1
+        else:
+            fig.savefig(Path("animation") / "voronoi.png")
 
     def finish_unbounded_edges_helper(self, unbound_edge, incident_site, co_site):
 
@@ -546,13 +583,13 @@ class Fortune:
                 prev_vertex = vertex
 
             prev_edge.next_edge = origins[(i + 1) % 4].incident_edge
-            origins[(i + 1) % 4].incident_edge.prev_edge=prev_edge
+            origins[(i + 1) % 4].incident_edge.prev_edge = prev_edge
 
             prev_edge.prev_edge = prev_vertex.incident_edge.twin
-            prev_vertex.incident_edge.twin.next_edge=prev_edge
+            prev_vertex.incident_edge.twin.next_edge = prev_edge
 
             prev_edge.twin.prev_edge = origins[(i + 1) % 4].incident_edge.twin
-            origins[(i + 1) % 4].incident_edge.twin.next_edge=prev_edge.twin
+            origins[(i + 1) % 4].incident_edge.twin.next_edge = prev_edge.twin
 
             prev_edge.incident_face = prev_vertex.incident_edge.twin.incident_face
             prev_edge.destination = origins[(i + 1) % 4]
@@ -599,10 +636,10 @@ class Fortune:
 
     def consistency_test(self):
         self.tree.consistency_test()
-        for edge in self.dcel.edges:
-            if edge.origin is not None and edge.destination is not None:
-                assert not (math.isclose(edge.origin.x, edge.destination.x) and
-                            math.isclose(edge.origin.y, edge.destination.y))
+        # for edge in self.dcel.edges:
+        #     if edge.origin is not None and edge.destination is not None:
+        #         assert not (math.isclose(edge.origin.x, edge.destination.x) and
+        #                     math.isclose(edge.origin.y, edge.destination.y))
 
 
 # plot the bounding boxes
@@ -625,8 +662,16 @@ def colinear(a, b, c):
         return False
 
 
+def vec_length(vec):
+    """ tend to evaluate to zero"""
+    l = math.sqrt(vec[0] * vec[0] + vec[1] * vec[1])
+    if l < 1e-5:
+        return 0
+    return l
+
+
 def points_are_close(point1, point2):
-    return math.isclose(point1[0], point2[0]) and math.isclose(point1[1], point2[1])
+    return math.isclose(point1[0], point2[0], abs_tol=1e-5) and math.isclose(point1[1], point2[1], abs_tol=1e-5)
 
 
 def circle_lowest_point(a, b, c):
@@ -674,7 +719,7 @@ def bisector(a, b):
     try:
         k = -1 / ab_delta
     except ZeroDivisionError:
-        return float("inf"), None
+        return float("inf"), (ax + bx) / 2
     c = (ay + by) / 2 - k * (ax + bx) / 2
 
     return k, c
@@ -683,6 +728,10 @@ def bisector(a, b):
 def intersect(kcline1, kcline2):
     k1, c1 = kcline1
     k2, c2 = kcline2
+    if math.isinf(k1):
+        return c1, k2 * c1 + c2
+    if math.isinf(k2):
+        return c2, k1 * c2 + c1
     x = (c2 - c1) / (k1 - k2)
     y = k1 * x + c1
     yy = k2 * x + c2
@@ -698,6 +747,9 @@ class Comparable:
 
     def __lt__(self, other):
         return getattr(self.obj, self.key) < getattr(other.obj, self.key)
+
+    def __eq__(self, other):
+        return getattr(self.obj, self.key) == getattr(other.obj, self.key)
 
 
 class EventQueue:
@@ -720,11 +772,16 @@ class EventQueue:
     def remove(self, event):
         i = bisect.bisect_left(self.q, event)
         element = self.q[i]
-        if isinstance(event, Comparable):
-            assert element.obj is event.obj
-        else:
-            assert event is element
-        return self.q.pop(i)
+        while element == event:
+            if isinstance(event, Comparable):
+                if element.obj is event.obj:
+                    return self.q.pop(i)
+            else:
+                if event is element:
+                    return self.q.pop(i)
+            i += 1
+            element = self.q[i]
+        raise ValueError("No such element")
 
     def __iter__(self):
         yield from iter(self.q)
@@ -741,6 +798,9 @@ class Event:
     def __lt__(self, other):
         return self.y < other.y
 
+    def __eq__(self, other):
+        return self.y == other.y
+
     def is_site_event(self):
         return isinstance(self, SiteEvent)
 
@@ -750,13 +810,15 @@ def cross_product(vec1, vec2):
 
 
 class CircleEvent(Event):
-    def __init__(self, vanishing_arc_left_break_point, vanishing_arc_right_break_point, a, b, c, clp_x, clp_y):
+    def __init__(self, vanishing_arc_left_break_point, vanishing_arc_right_break_point, a, b, c, clp_x, clp_y,
+                 directly_under_an_arc=False):
         self.vanishing_arc_left_break_point = vanishing_arc_left_break_point
         self.vanishing_arc_right_break_point = vanishing_arc_right_break_point
 
         self.a = a
         self.b = b
         self.c = c
+        self.directly_under_an_arc = directly_under_an_arc
 
         assert self.vanishing_arc_right_break_point.circle_event is None
         super(CircleEvent, self).__init__(clp_x, clp_y)

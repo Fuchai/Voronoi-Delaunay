@@ -88,7 +88,7 @@ class Site(Payload):
     def string_parabola(self, l):
         a = self.x
         b = self.y
-        if math.isclose(b, l):
+        if math.isclose(b, l, abs_tol=1e-5):
             return f"vertical site ({self.x}, {self.y})"
         else:
             coef2 = 1 / (2 * (b - l))
@@ -134,7 +134,7 @@ class BreakPoint(Payload):
         # need to handle it in the overall algorithm.
 
         if coef2 != 0:
-            if math.isclose(self.left_lower_site.y, ly) or math.isclose(self.left_higher_site.y, ly):
+            if math.isclose(self.left_lower_site.y, ly, abs_tol=1e-5) or math.isclose(self.left_higher_site.y, ly, abs_tol=1e-5):
                 has_vertical = True
             else:
                 has_vertical = False
@@ -146,11 +146,11 @@ class BreakPoint(Payload):
 
                 y1 = self.left_higher_site.get_parabola_y(x1, ly)
                 y11 = self.left_lower_site.get_parabola_y(x1, ly)
-                assert math.isclose(y1, y11)
+                assert math.isclose(y1, y11, abs_tol=1e-5)
 
                 y2 = self.left_higher_site.get_parabola_y(x2, ly)
                 y22 = self.left_lower_site.get_parabola_y(x2, ly)
-                assert math.isclose(y2, y22)
+                assert math.isclose(y2, y22, abs_tol=1e-5)
 
                 # to pick intersection, judge which site is lower
                 if self.left_higher_site.y < self.left_lower_site.y:
@@ -160,14 +160,13 @@ class BreakPoint(Payload):
                     # the right solution has left higher site higher
                     return x2, y2
             else:
-                if math.isclose(self.left_lower_site.y, ly):
+                if math.isclose(self.left_lower_site.y, ly, abs_tol=1e-5):
                     return self.left_lower_site.x, self.left_higher_site.get_parabola_y(self.left_lower_site.x, ly)
-                elif math.isclose(self.left_higher_site.y, ly):
-                    return self.left_higher_site.x, self.left_lower_site.get_parabola_y(self.left_lower_site.x, ly)
+                elif math.isclose(self.left_higher_site.y, ly, abs_tol=1e-5):
+                    return self.left_higher_site.x, self.left_lower_site.get_parabola_y(self.left_higher_site.x, ly)
                 else:
                     raise ValueError("Investigate this")
         else:
-            # TODO when does this happen?\
             if coef1 == 0:
                 assert b==0 and d==0
                 return (a+c)/2, float("inf")
@@ -175,7 +174,7 @@ class BreakPoint(Payload):
                 x = -coef0 / coef1
                 y = self.left_higher_site.get_parabola_y(x, ly)
                 yy = self.left_lower_site.get_parabola_y(x, ly)
-                assert math.isclose(y, yy)
+                assert math.isclose(y, yy, abs_tol=1e-5)
                 return x, y
 
     def eval(self, l):
@@ -622,7 +621,7 @@ class BeachLineTree:
                     if ch is not None:
                         ch.parent = current_node
                     arc_left_node = current_node.left_nbr
-            elif math.isclose(tdne, cne, rel_tol=1e-5):
+            elif math.isclose(tdne, cne, abs_tol=1e-5):
                 # have to check both children. float point error
                 try:
                     ch, arc_left_node = self._delete(current_node.left_child, to_delete_node)
@@ -787,18 +786,18 @@ class BeachLineTree:
                     assert previous_node.right_nbr is node
                     assert node.left_nbr is previous_node
 
+                node_x, node_y = node.payload.get_coordinates(self.y)
+
                 if node.left_nbr is not None:
                     assert node.payload.left_lower_site is node.left_nbr.payload.left_higher_site
-                    node_x, node_y = node.payload.get_coordinates(self.y)
                     left_nbr_x, left_nbr_y = node.left_nbr.payload.get_coordinates(self.y)
-                    assert left_nbr_x < node_x or math.isclose(node_x, left_nbr_x)
+                    assert left_nbr_x < node_x or math.isclose(node_x, left_nbr_x, abs_tol=1e-5)
 
                 if node.right_nbr is not None:
                     assert node.right_nbr.left_nbr is node
                     assert node.payload.left_higher_site is node.right_nbr.payload.left_lower_site
-                    node_x, node_y = node.payload.get_coordinates(self.y)
                     right_nbr_x, right_nbr_y = node.right_nbr.payload.get_coordinates(self.y)
-                    assert node_x < right_nbr_x or math.isclose(node_x, right_nbr_x)
+                    assert node_x < right_nbr_x or math.isclose(node_x, right_nbr_x, abs_tol=1e-5)
 
                 try:
                     ldelta = node.payload.left_higher_site.get_parabola_derivative(node_x, self.y)
@@ -806,8 +805,8 @@ class BeachLineTree:
                            node.payload.left_lower_site.get_parabola_derivative(node_x, self.y)
                 except ZeroDivisionError:
                     # then the newly inserted site is a vertical line
-                    assert math.isclose(node.payload.left_higher_site.y, self.y) or \
-                           math.isclose(node.payload.left_lower_site.y, self.y)
+                    assert math.isclose(node.payload.left_higher_site.y, self.y, abs_tol=1e-5) or \
+                           math.isclose(node.payload.left_lower_site.y, self.y, abs_tol=1e-5)
 
                 minimum = minimum.right_nbr
                 count += 1
@@ -824,7 +823,7 @@ class BeachLineTree:
             x = np.linspace(mmin.eval(self.y) - 1, mmax.eval(self.y) + 1, 5000)
             # plot all parabolas
             for site in self.sites():
-                if math.isclose(site.y, self.y):
+                if math.isclose(site.y, self.y, abs_tol=1e-5):
                     plt.axvline(x=site.x)
                 else:
                     y = site.get_parabola_y(x, self.y)
